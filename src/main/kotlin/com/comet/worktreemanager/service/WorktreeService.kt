@@ -31,7 +31,7 @@ class WorktreeService(private val project: Project) {
 
     /** Lists worktrees for a single repository. */
     fun list(repo: GitRepository): List<WorktreeInfo> {
-        val handler = GitLineHandler(project, repo.root, GitCommand.WORKTREE)
+        val handler = GitLineHandler(project, repo.root, GitWorktreeCommand.INSTANCE)
         handler.addParameters("list", "--porcelain")
         val result = Git.getInstance().runCommand(handler)
         if (!result.success()) {
@@ -46,7 +46,7 @@ class WorktreeService(private val project: Project) {
      * uncommitted changes or untracked files.
      */
     fun remove(repo: GitRepository, worktreePath: String, force: Boolean): GitCommandResult {
-        val handler = GitLineHandler(project, repo.root, GitCommand.WORKTREE)
+        val handler = GitLineHandler(project, repo.root, GitWorktreeCommand.INSTANCE)
         handler.addParameters("remove")
         if (force) handler.addParameters("--force")
         handler.addParameters(worktreePath)
@@ -62,7 +62,7 @@ class WorktreeService(private val project: Project) {
 
     /** Prunes administrative files for worktrees whose directory is gone. */
     fun prune(repo: GitRepository): GitCommandResult {
-        val handler = GitLineHandler(project, repo.root, GitCommand.WORKTREE)
+        val handler = GitLineHandler(project, repo.root, GitWorktreeCommand.INSTANCE)
         handler.addParameters("prune")
         return Git.getInstance().runCommand(handler)
     }
