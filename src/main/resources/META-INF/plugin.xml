@@ -1,0 +1,25 @@
+<idea-plugin>
+    <id>com.comet.worktree-manager</id>
+    <name>Worktree Manager</name>
+    <vendor email="nicolas.betheuil@comet.team">Nicolas Betheuil</vendor>
+
+    <description><![CDATA[
+        Manage your Git worktrees from a dedicated tool window.
+        <ul>
+            <li>List every worktree of the current repositories (branch, path, status).</li>
+            <li>Open a worktree in a new IDE window.</li>
+            <li>Remove / prune a worktree, optionally deleting its branch — with guard rails.</li>
+        </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow
+            id="Worktrees"
+            anchor="right"
+            icon="AllIcons.Vcs.Branch"
+            factoryClass="com.comet.worktreemanager.toolwindow.WorktreeToolWindowFactory"/>
+    </extensions>
+</idea-plugin>
