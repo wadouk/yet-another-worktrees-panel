@@ -22,6 +22,8 @@ French**.
 - The **current** worktree's branch is shown in **bold with a yellow `HEAD` tag**.
 - **Show in Git Log** (right-click) jumps to the branch in the commit graph.
 - **Sort** by any column and **filter** the table live with the search field.
+- **Multi-select** rows (Ctrl/Shift-click) to **delete several at once** — e.g. clear out all
+  the `obsolete` branches in one batch confirmation.
 - **Open** a worktree in a new IDE window (toolbar action or double-click).
 - **Delete** adaptively, depending on what exists for the selected row:
   - worktree + branch → remove the worktree, optionally also delete the branch;

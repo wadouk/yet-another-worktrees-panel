@@ -64,7 +64,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         }
     }.apply {
         setShowGrid(false)
-        selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
+        selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
         rowSorter = sorter
         // Show "loading" until the first load completes (avoids a misleading
         // "no worktrees" flash while git runs in the background).
@@ -140,10 +140,19 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         table.selectedRow.takeIf { it >= 0 }
             ?.let { tableModel.rowAt(table.convertRowIndexToModel(it)) }
 
+    private fun selectedRows(): List<WorktreeRow> =
+        table.selectedRows.toList().mapNotNull { viewIndex ->
+            tableModel.rowAt(table.convertRowIndexToModel(viewIndex))
+        }
+
     private fun maybeSelectForPopup(e: MouseEvent) {
         if (!e.isPopupTrigger) return
         val viewRow = table.rowAtPoint(e.point)
-        if (viewRow >= 0) table.setRowSelectionInterval(viewRow, viewRow)
+        // Keep an existing multi-selection when right-clicking inside it;
+        // otherwise select just the row under the cursor.
+        if (viewRow >= 0 && !table.isRowSelected(viewRow)) {
+            table.setRowSelectionInterval(viewRow, viewRow)
+        }
     }
 
     /** Opens the Git Log tab and navigates the commit graph to the branch. */
@@ -176,17 +185,18 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
     }
 
-    private fun deleteRow(row: WorktreeRow) {
-        if (row.isCurrent) {
-            Messages.showWarningDialog(
-                project,
-                WorktreeBundle.message("message.delete.currentWorktree"),
-                WorktreeBundle.message("dialog.delete.title"),
-            )
-            return
+    /** Entry point for the Delete action: one adaptive dialog, or a batch one. */
+    private fun deleteSelected() {
+        val rows = selectedRows().filter { canDelete(it) }
+        when {
+            rows.isEmpty() -> return
+            rows.size == 1 -> deleteSingle(rows.first())
+            else -> deleteBatch(rows)
         }
-        val repo = service.repositoryByRoot(row.repositoryRoot)
-        if (repo == null) {
+    }
+
+    private fun deleteSingle(row: WorktreeRow) {
+        val repo = service.repositoryByRoot(row.repositoryRoot) ?: run {
             Messages.showErrorDialog(
                 project,
                 WorktreeBundle.message("message.delete.noRepo"),
@@ -197,23 +207,57 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         val dialog = DeleteDialog(project, row)
         if (!dialog.showAndGet()) return
         val opts = dialog.options()
-
         runInBackground(WorktreeBundle.message("task.deleting")) {
-            if (opts.removeWorktree && row.worktreePath != null) {
-                val result = service.remove(repo, row.worktreePath, opts.force)
-                if (!result.success()) {
-                    notifyError(WorktreeBundle.message("message.error.removeWorktree"), result.errorOutputAsJoinedString)
-                    return@runInBackground
-                }
+            val error = performDelete(repo, row, opts.removeWorktree, opts.deleteBranch, opts.force)
+            if (error != null) notifyError(WorktreeBundle.message("dialog.delete.title"), error)
+            refresh()
+        }
+    }
+
+    private fun deleteBatch(rows: List<WorktreeRow>) {
+        val dialog = BatchDeleteDialog(project, rows)
+        if (!dialog.showAndGet()) return
+        val opts = dialog.options()
+        runInBackground(WorktreeBundle.message("task.deleting")) {
+            val errors = rows.mapNotNull { row ->
+                val repo = service.repositoryByRoot(row.repositoryRoot) ?: return@mapNotNull null
+                performDelete(
+                    repo = repo,
+                    row = row,
+                    removeWorktree = row.hasWorktree && !row.isBare,
+                    // Branch-only rows always delete the branch; worktree rows only when opted in.
+                    deleteBranch = row.hasBranch && (!row.hasWorktree || opts.deleteBranches),
+                    force = opts.force,
+                )
             }
-            if (opts.deleteBranch && row.branch != null) {
-                val result = service.deleteBranch(repo, row.branch, force = opts.force)
-                if (!result.success()) {
-                    notifyError(WorktreeBundle.message("message.error.deleteBranch"), result.errorOutputAsJoinedString)
-                }
+            if (errors.isNotEmpty()) {
+                notifyError(
+                    WorktreeBundle.message("dialog.delete.title"),
+                    WorktreeBundle.message("message.error.batch", errors.joinToString("\n")),
+                )
             }
             refresh()
         }
+    }
+
+    /** Performs the git ops for one row; returns an error line, or null on success. */
+    private fun performDelete(
+        repo: GitRepository,
+        row: WorktreeRow,
+        removeWorktree: Boolean,
+        deleteBranch: Boolean,
+        force: Boolean,
+    ): String? {
+        val label = row.branch ?: row.worktreePath ?: "?"
+        if (removeWorktree && row.worktreePath != null) {
+            val result = service.remove(repo, row.worktreePath, force)
+            if (!result.success()) return "$label: ${result.errorOutputAsJoinedString}"
+        }
+        if (deleteBranch && row.branch != null) {
+            val result = service.deleteBranch(repo, row.branch, force = force)
+            if (!result.success()) return "$label: ${result.errorOutputAsJoinedString}"
+        }
+        return null
     }
 
     private fun pruneAll() {
@@ -269,7 +313,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { openWorktree(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             val row = selected()
-            e.presentation.isEnabled = row != null && row.hasWorktree && !row.isCurrent
+            e.presentation.isEnabled =
+                table.selectedRowCount == 1 && row != null && row.hasWorktree && !row.isCurrent
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
@@ -281,7 +326,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     ) {
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { showInGitLog(it) } ?: Unit
         override fun update(e: AnActionEvent) {
-            e.presentation.isEnabled = selected()?.hasBranch == true
+            e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasBranch == true
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
@@ -291,9 +336,9 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         WorktreeBundle.message("action.delete.desc"),
         AllIcons.General.Remove,
     ) {
-        override fun actionPerformed(e: AnActionEvent) = selected()?.let { deleteRow(it) } ?: Unit
+        override fun actionPerformed(e: AnActionEvent) = deleteSelected()
         override fun update(e: AnActionEvent) {
-            e.presentation.isEnabled = canDelete(selected())
+            e.presentation.isEnabled = selectedRows().any { canDelete(it) }
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
