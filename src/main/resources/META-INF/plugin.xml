@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.comet.worktree-manager</id>
+    <id>com.comet.yet-another-worktrees-panel</id>
     <name>Yet Another Worktrees Panel</name>
     <vendor email="nicolas.betheuil@comet.team">Nicolas Betheuil</vendor>
 
