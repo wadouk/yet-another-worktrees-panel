@@ -1,10 +1,10 @@
 <idea-plugin>
-    <id>com.comet.yet-another-worktrees-panel</id>
+    <id>me.heloworld.yet-another-worktrees-panel</id>
     <name>Yet Another Worktrees Panel</name>
-    <vendor email="nicolas.betheuil@comet.team">Nicolas Betheuil</vendor>
+    <vendor email="wadouk+yawp@gmail.com">wadouk</vendor>
 
     <description><![CDATA[
-        Manage your Git worktrees from a "Pruning" tab in the Version Control tool window.
+        Manage your Git worktrees from a "Worktrees" tab in the Version Control tool window.
         <ul>
             <li>List every worktree of the current repositories and branches without one.</li>
             <li>Open a worktree in a new IDE window; show a branch in the Git Log.</li>
@@ -20,8 +20,8 @@
     <extensions defaultExtensionNs="com.intellij">
         <changesViewContent
             tabName="Worktrees"
-            className="com.comet.worktreemanager.toolwindow.WorktreePruningContentProvider"
-            displayNameSupplierClassName="com.comet.worktreemanager.toolwindow.WorktreeTabName"
-            predicateClassName="com.comet.worktreemanager.toolwindow.WorktreeTabVisibility"/>
+            className="me.heloworld.worktreemanager.toolwindow.WorktreePruningContentProvider"
+            displayNameSupplierClassName="me.heloworld.worktreemanager.toolwindow.WorktreeTabName"
+            predicateClassName="me.heloworld.worktreemanager.toolwindow.WorktreeTabVisibility"/>
     </extensions>
 </idea-plugin>

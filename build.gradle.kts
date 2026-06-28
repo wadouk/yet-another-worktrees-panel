@@ -6,7 +6,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
 
-group = "com.comet"
+group = "me.heloworld"
 version = "0.1.0"
 
 repositories {
