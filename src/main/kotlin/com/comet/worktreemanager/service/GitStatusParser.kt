@@ -31,4 +31,16 @@ object GitStatusParser {
         }
         return WorkingTreeStatus(staged, modified, untracked, conflicted)
     }
+
+    /**
+     * Extracts the worktree-relative paths of changed files from porcelain lines.
+     * For renames/copies (`R  old -> new`) the destination path is returned.
+     * Surrounding quotes (git quotes paths with special chars) are stripped.
+     */
+    fun changedPaths(lines: List<String>): List<String> =
+        lines.filter { it.length > 3 }.map { line ->
+            val raw = line.substring(3)
+            val path = raw.substringAfter(" -> ", raw)
+            path.removeSurrounding("\"")
+        }
 }

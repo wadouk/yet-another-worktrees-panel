@@ -39,4 +39,12 @@ class BranchRefParserTest {
 
         assertTrue(br.isGone)
     }
+
+    /** The optional 5th field carries the tip commit time (unix seconds). */
+    @Test
+    fun parsesCommitterTime() {
+        val br = BranchRefParser.parse(listOf("main${s}abc${s}origin/main${s}${s}1700000000")).single()
+
+        assertEquals(1_700_000_000L, br.committerTime)
+    }
 }

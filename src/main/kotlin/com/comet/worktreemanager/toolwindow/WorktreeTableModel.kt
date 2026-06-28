@@ -17,7 +17,7 @@ class WorktreeTableModel : AbstractTableModel() {
 
     override fun getRowCount(): Int = rows.size
 
-    override fun getColumnCount(): Int = 6
+    override fun getColumnCount(): Int = 7
 
     override fun getColumnName(column: Int): String = when (column) {
         0 -> "Branch"
@@ -25,6 +25,7 @@ class WorktreeTableModel : AbstractTableModel() {
         2 -> "Tracking"
         3 -> "Merged"
         4 -> "Changes"
+        5 -> "Activity"
         else -> "Status"
     }
 
@@ -36,9 +37,13 @@ class WorktreeTableModel : AbstractTableModel() {
             2 -> row.trackingLabel
             3 -> row.mergedLabel
             4 -> row.changesLabel
+            5 -> RelativeTimeCell(row.lastActivityMillis)
             else -> row.statusLabel
         }
     }
+
+    override fun getColumnClass(columnIndex: Int): Class<*> =
+        if (columnIndex == 5) RelativeTimeCell::class.java else String::class.java
 
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean = false
 }

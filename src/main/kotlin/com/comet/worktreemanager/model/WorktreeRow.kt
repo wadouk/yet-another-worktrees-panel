@@ -28,6 +28,10 @@ data class WorktreeRow(
     val isMerged: Boolean? = null,
     /** The repo's default branch name, used to label/compare; null if unknown. */
     val defaultBranch: String? = null,
+    /** Last activity timestamp (millis): newest uncommitted change or last commit. */
+    val lastActivityMillis: Long? = null,
+    /** True when [lastActivityMillis] came from an uncommitted file, not a commit. */
+    val lastActivityIsFile: Boolean = false,
 ) {
     val hasWorktree: Boolean get() = worktreePath != null
     val hasBranch: Boolean get() = branch != null

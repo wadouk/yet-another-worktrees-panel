@@ -1,6 +1,7 @@
 package com.comet.worktreemanager.toolwindow
 
 import com.comet.worktreemanager.model.WorktreeRow
+import com.comet.worktreemanager.service.RelativeTime
 import com.comet.worktreemanager.service.WorktreeService
 import com.intellij.icons.AllIcons
 import com.intellij.ide.impl.ProjectUtil
@@ -53,7 +54,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
                 2 -> trackingTooltip(row)
                 3 -> mergedTooltip(row)
                 4 -> changesTooltip(row)
-                5 -> statusTooltip(row)
+                5 -> activityTooltip(row)
+                6 -> statusTooltip(row)
                 else -> null
             }
         }
@@ -157,6 +159,16 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
             row.isMerged == true -> "Merged into the default branch ('$default')"
             row.isMerged == false -> "Not yet merged into the default branch ('$default')"
             else -> "Merge status unavailable"
+        }
+    }
+
+    private fun activityTooltip(row: WorktreeRow): String {
+        val millis = row.lastActivityMillis ?: return "No activity information"
+        val relative = RelativeTime.format(millis, System.currentTimeMillis())
+        return if (row.lastActivityIsFile) {
+            "Most recent uncommitted change ($relative)"
+        } else {
+            "Last commit ($relative)"
         }
     }
 

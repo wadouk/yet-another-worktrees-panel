@@ -1,6 +1,5 @@
 package com.comet.worktreemanager.service
 
-import com.comet.worktreemanager.model.WorkingTreeStatus
 import com.comet.worktreemanager.model.WorktreeInfo
 import com.comet.worktreemanager.model.WorktreeRow
 import com.intellij.openapi.components.Service
@@ -43,19 +42,33 @@ class WorktreeService(private val project: Project) {
     private fun rowsFor(repo: GitRepository): List<WorktreeRow> {
         val branches = listBranches(repo)
         val rows = WorktreeRowBuilder.build(listWorktrees(repo), branches, repo.root.path)
+        val commitMillisByBranch = branches.associate { it.name to it.committerTime * 1000 }
 
         val default = detectDefaultBranch(repo, branches.mapTo(mutableSetOf()) { it.name })
         val merged = default?.let { mergedBranches(repo, it.ref) } ?: emptySet()
 
         return rows.map { row ->
+            val statusLines = if (row.hasWorktree && !row.isBare) statusLines(row.worktreePath!!) else null
+            val workingTree = statusLines?.let { GitStatusParser.parse(it) }
+            val latestFileMillis =
+                if (statusLines != null && workingTree?.isClean == false) {
+                    latestChangeMillis(row.worktreePath!!, statusLines)
+                } else {
+                    null
+                }
+            val commitMillis = row.branch?.let { commitMillisByBranch[it] }
+            val (activityMillis, fromFile) = ActivityResolver.resolve(commitMillis, latestFileMillis)
+
             row.copy(
-                workingTree = if (row.hasWorktree && !row.isBare) workingTreeStatus(row.worktreePath!!) else null,
+                workingTree = workingTree,
                 isMerged = when {
                     row.branch == null || default == null -> null
                     row.branch == default.name -> null
                     else -> row.branch in merged
                 },
                 defaultBranch = default?.name,
+                lastActivityMillis = activityMillis,
+                lastActivityIsFile = fromFile,
             )
         }
     }
@@ -81,8 +94,8 @@ class WorktreeService(private val project: Project) {
         return result.output.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     }
 
-    /** Working-tree dirtiness of a worktree, via `git status --porcelain`. */
-    fun workingTreeStatus(worktreePath: String): WorkingTreeStatus? {
+    /** Raw `git status --porcelain` lines for a worktree, or null on failure. */
+    private fun statusLines(worktreePath: String): List<String>? {
         val handler = GitLineHandler(project, File(worktreePath), GitCommand.STATUS)
         handler.addParameters("--porcelain")
         val result = Git.getInstance().runCommand(handler)
@@ -90,8 +103,15 @@ class WorktreeService(private val project: Project) {
             thisLogger().warn("git status failed for $worktreePath: ${result.errorOutputAsJoinedString}")
             return null
         }
-        return GitStatusParser.parse(result.output)
+        return result.output
     }
+
+    /** Most recent modification time (millis) among the changed files, or null. */
+    private fun latestChangeMillis(worktreePath: String, statusLines: List<String>): Long? =
+        GitStatusParser.changedPaths(statusLines)
+            .mapNotNull { rel -> File(worktreePath, rel).takeIf { it.exists() }?.lastModified() }
+            .filter { it > 0 }
+            .maxOrNull()
 
     /** Worktrees of a single repository, via `git worktree list --porcelain`. */
     fun listWorktrees(repo: GitRepository): List<WorktreeInfo> {
@@ -108,7 +128,8 @@ class WorktreeService(private val project: Project) {
     /** Local branches with tracking info, via `git for-each-ref refs/heads`. */
     fun listBranches(repo: GitRepository): List<BranchRef> {
         val sep = BranchRefParser.SEP
-        val format = "%(refname:short)$sep%(objectname)$sep%(upstream:short)$sep%(upstream:track)"
+        val format =
+            "%(refname:short)$sep%(objectname)$sep%(upstream:short)$sep%(upstream:track)$sep%(committerdate:unix)"
         val handler = GitLineHandler(project, repo.root, GitCommand.FOR_EACH_REF)
         handler.addParameters("--format=$format", "refs/heads")
         val result = Git.getInstance().runCommand(handler)

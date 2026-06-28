@@ -42,4 +42,18 @@ class GitStatusParserTest {
         assertEquals(0, status.staged)
         assertEquals(0, status.modified)
     }
+
+    /** Changed paths are extracted; renames yield the destination path. */
+    @Test
+    fun extractsChangedPaths() {
+        val paths = GitStatusParser.changedPaths(
+            listOf(
+                " M src/Main.kt",
+                "?? new.txt",
+                "R  old/Name.kt -> new/Name.kt",
+            ),
+        )
+
+        assertEquals(listOf("src/Main.kt", "new.txt", "new/Name.kt"), paths)
+    }
 }

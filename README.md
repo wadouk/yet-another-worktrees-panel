@@ -11,6 +11,8 @@ An IntelliJ Platform plugin to manage your Git worktrees from a dedicated tool w
   (`merged` / `unmerged` / `default`), resolved via `origin/HEAD` (fallback main/master).
 - **Working-tree status** for each existing worktree (`clean`, or `+staged ~modified
   ?untracked !conflicts`) from `git status --porcelain`.
+- **Activity** column (relative, e.g. `3 days ago`): the most recent uncommitted file
+  change for a dirty worktree, otherwise the last commit. Sorts chronologically.
 - **Show in Git Log** (right-click) jumps to the branch in the commit graph.
 - **Sort** by any column and **filter** the table live with the search field
   (matches branch / path / status, case-insensitive).
