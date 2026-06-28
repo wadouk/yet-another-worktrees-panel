@@ -42,9 +42,25 @@ This project ships a Gradle wrapper, so no local Gradle install is needed.
 ./gradlew build          # compile + run tests
 ./gradlew runIde         # launch a sandbox IDE with the plugin installed
 ./gradlew buildPlugin    # produce build/distributions/worktree-manager-<version>.zip
+./gradlew verifyPlugin   # run the JetBrains Plugin Verifier (compat + dynamic check)
 ```
 
 Install the built zip via *Settings → Plugins → ⚙ → Install Plugin from Disk…*.
+
+## No IDE restart needed
+
+This is a **dynamic plugin**: it only uses dynamic extension points (a tool window) and
+disposes its resources cleanly, so it loads, updates, and unloads **without restarting the
+IDE**.
+
+- **Installing / updating**: *Install Plugin from Disk* loads it immediately — no mandatory
+  restart.
+- **Dev hot-reload**: keep `./gradlew runIde` running and, in another terminal, run
+  `./gradlew buildPlugin` (or `prepareSandbox`). The sandbox auto-reloads the plugin live
+  (`idea.auto.reload.plugins=true` is set by `runIde`) — no restart.
+- Note: the `Restart not supported; exiting` line you may see from `runIde` is just the **dev
+  sandbox process exiting** (its IntelliJ home isn't a real app bundle); it is **not** an
+  install-time restart requirement.
 
 ## Project layout
 

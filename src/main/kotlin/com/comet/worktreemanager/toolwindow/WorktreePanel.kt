@@ -4,6 +4,7 @@ import com.comet.worktreemanager.model.WorktreeRow
 import com.comet.worktreemanager.service.RelativeTime
 import com.comet.worktreemanager.service.WorktreeService
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.Disposable
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -39,7 +40,7 @@ import javax.swing.table.TableRowSorter
  * and a filter field above a sortable, filterable table of worktrees and
  * branches. Double-clicking a worktree row opens it in a new window.
  */
-class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
+class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
     private val service = project.getService(WorktreeService::class.java)
     private val tableModel = WorktreeTableModel()
@@ -111,6 +112,16 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
         PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
 
         refresh()
+    }
+
+    /**
+     * Called when the tool window content is disposed (incl. dynamic plugin
+     * unload). Unregisters the table from the shared ToolTipManager so no
+     * reference to plugin classes lingers; the other listeners and the
+     * PopupHandler are tied to the (garbage-collected) table itself.
+     */
+    override fun dispose() {
+        ToolTipManager.sharedInstance().unregisterComponent(table)
     }
 
     private fun applyFilter() {

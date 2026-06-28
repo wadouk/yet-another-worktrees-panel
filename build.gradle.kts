@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -31,6 +32,14 @@ intellijPlatform {
         ideaVersion {
             sinceBuild = "243"
             untilBuild = provider { null }
+        }
+    }
+
+    // Verify against the build-target IDE (already cached) — `./gradlew verifyPlugin`
+    // reports compatibility problems and dynamic-plugin (no-restart) eligibility.
+    pluginVerification {
+        ides {
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.3")
         }
     }
 }
