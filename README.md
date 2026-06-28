@@ -71,7 +71,7 @@ the IDE**.
 ## Project layout
 
 ```
-src/main/kotlin/com/comet/worktreemanager/
+src/main/kotlin/me/heloworld/worktreemanager/
 ├── i18n/
 │   └── WorktreeBundle.kt              # DynamicBundle (messages.WorktreeBundle)
 ├── model/                            # pure data only — no i18n, no clock
@@ -98,5 +98,5 @@ src/main/kotlin/com/comet/worktreemanager/
 
 src/main/resources/messages/
 ├── WorktreeBundle.properties         # English (base)
-└── WorktreeBundle_fr.properties      # French (« Élagage »)
+└── WorktreeBundle_fr.properties      # French translations
 ```
