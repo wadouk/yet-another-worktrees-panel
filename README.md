@@ -47,7 +47,7 @@ This project ships a Gradle wrapper, so no local Gradle install is needed.
 ```bash
 ./gradlew build          # compile + run tests
 ./gradlew runIde         # launch a sandbox IDE with the plugin installed
-./gradlew buildPlugin    # produce build/distributions/worktree-manager-<version>.zip
+./gradlew buildPlugin    # produce build/distributions/yet-another-worktrees-panel-<version>.zip
 ./gradlew verifyPlugin   # run the JetBrains Plugin Verifier (compat + dynamic check)
 ```
 
