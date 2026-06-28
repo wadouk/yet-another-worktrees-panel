@@ -15,9 +15,11 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.DocumentAdapter
+import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.table.JBTable
+import com.intellij.vcs.log.impl.VcsLogContentUtil
 import git4idea.repo.GitRepository
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
@@ -27,6 +29,7 @@ import java.util.regex.Pattern
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
 import javax.swing.RowFilter
+import javax.swing.ToolTipManager
 import javax.swing.event.DocumentEvent
 import javax.swing.table.TableRowSorter
 
@@ -40,11 +43,24 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
     private val service = project.getService(WorktreeService::class.java)
     private val tableModel = WorktreeTableModel()
     private val sorter = TableRowSorter(tableModel)
-    private val table = JBTable(tableModel).apply {
+    private val table = object : JBTable(tableModel) {
+        override fun getToolTipText(e: MouseEvent): String? {
+            val viewRow = rowAtPoint(e.point)
+            val viewCol = columnAtPoint(e.point)
+            if (viewRow < 0 || viewCol < 0) return null
+            val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
+            return when (convertColumnIndexToModel(viewCol)) {
+                2 -> trackingTooltip(row)
+                3 -> statusTooltip(row)
+                else -> null
+            }
+        }
+    }.apply {
         setShowGrid(false)
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
         rowSorter = sorter
         emptyText.text = "No worktrees or branches found"
+        ToolTipManager.sharedInstance().registerComponent(this)
     }
     private val filterField = SearchTextField().apply {
         textEditor.emptyText.text = "Filter branch / path / status"
@@ -76,7 +92,19 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
             override fun mouseClicked(e: MouseEvent) {
                 if (e.clickCount == 2) selected()?.let { openWorktree(it) }
             }
+
+            // Select the row under the cursor before the context menu opens.
+            override fun mousePressed(e: MouseEvent) = maybeSelectForPopup(e)
+            override fun mouseReleased(e: MouseEvent) = maybeSelectForPopup(e)
         })
+
+        val popupGroup = DefaultActionGroup().apply {
+            add(OpenAction())
+            add(ShowInGitLogAction())
+            addSeparator()
+            add(DeleteAction())
+        }
+        PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
 
         refresh()
     }
@@ -91,6 +119,44 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
     private fun selected(): WorktreeRow? =
         table.selectedRow.takeIf { it >= 0 }
             ?.let { tableModel.rowAt(table.convertRowIndexToModel(it)) }
+
+    private fun maybeSelectForPopup(e: MouseEvent) {
+        if (!e.isPopupTrigger) return
+        val viewRow = table.rowAtPoint(e.point)
+        if (viewRow >= 0) table.setRowSelectionInterval(viewRow, viewRow)
+    }
+
+    /** Opens the Git Log tab and navigates the commit graph to the branch. */
+    private fun showInGitLog(row: WorktreeRow) {
+        val branch = row.branch ?: return
+        VcsLogContentUtil.runInMainLog(project) { ui -> ui.vcsLog.jumpToReference(branch) }
+    }
+
+    private fun trackingTooltip(row: WorktreeRow): String = when {
+        row.upstream == null -> "No upstream branch configured"
+        row.isGone -> "Upstream '${row.upstream}' is gone (deleted on the remote)"
+        row.ahead == 0 && row.behind == 0 -> "Up to date with '${row.upstream}'"
+        else -> buildString {
+            append("Relative to '${row.upstream}': ")
+            append(
+                buildList {
+                    if (row.ahead > 0) add("${row.ahead} ahead")
+                    if (row.behind > 0) add("${row.behind} behind")
+                }.joinToString(", "),
+            )
+        }
+    }
+
+    private fun statusTooltip(row: WorktreeRow): String {
+        val parts = buildList {
+            if (row.isCurrent) add("Currently open in this window")
+            if (!row.hasWorktree && row.hasBranch) add("Local branch with no worktree checked out")
+            if (row.isLocked) add("Worktree is locked")
+            if (row.isPrunable) add("Worktree directory is missing — prunable")
+            if (row.isBare) add("Bare repository entry")
+        }
+        return if (parts.isEmpty()) "No special status" else parts.joinToString("; ")
+    }
 
     private fun refresh() {
         runInBackground("Loading worktrees") {
@@ -183,6 +249,15 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
         override fun update(e: AnActionEvent) {
             val row = selected()
             e.presentation.isEnabled = row != null && row.hasWorktree && !row.isCurrent
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class ShowInGitLogAction :
+        AnAction("Show in Git Log", "Show the selected branch in the Git Log graph", AllIcons.Vcs.Branch) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.let { showInGitLog(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = selected()?.hasBranch == true
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
