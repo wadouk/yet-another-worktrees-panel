@@ -1,7 +1,8 @@
 package com.comet.worktreemanager.toolwindow
 
-import com.comet.worktreemanager.model.WorktreeInfo
+import com.comet.worktreemanager.model.WorktreeRow
 import com.comet.worktreemanager.service.WorktreeService
+import com.intellij.icons.AllIcons
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -13,48 +14,63 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.ScrollPaneFactory
-import com.intellij.ui.components.JBLabel
+import com.intellij.ui.SearchTextField
 import com.intellij.ui.table.JBTable
-import com.intellij.util.ui.JBUI
 import git4idea.repo.GitRepository
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
+import java.util.regex.Pattern
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
-import com.intellij.icons.AllIcons
+import javax.swing.RowFilter
+import javax.swing.event.DocumentEvent
+import javax.swing.table.TableRowSorter
 
 /**
- * The Worktrees tool window content: a toolbar (Refresh / Open / Remove / Prune)
- * above a table of worktrees. Double-clicking a row opens it in a new window.
+ * The Worktrees tool window content: a toolbar (Refresh / Open / Delete / Prune)
+ * and a filter field above a sortable, filterable table of worktrees and
+ * branches. Double-clicking a worktree row opens it in a new window.
  */
 class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
 
     private val service = project.getService(WorktreeService::class.java)
     private val tableModel = WorktreeTableModel()
+    private val sorter = TableRowSorter(tableModel)
     private val table = JBTable(tableModel).apply {
         setShowGrid(false)
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
-        emptyText.text = "No worktrees found"
+        rowSorter = sorter
+        emptyText.text = "No worktrees or branches found"
     }
-    private val emptyLabel = JBLabel("This project has no Git repository.", JBLabel.CENTER)
+    private val filterField = SearchTextField().apply {
+        textEditor.emptyText.text = "Filter branch / path / status"
+    }
 
     init {
         val actionGroup = DefaultActionGroup().apply {
             add(RefreshAction())
             add(OpenAction())
-            add(RemoveAction())
+            add(DeleteAction())
             addSeparator()
             add(PruneAction())
         }
         val toolbar = ActionManager.getInstance()
             .createActionToolbar("WorktreeManagerToolbar", actionGroup, true)
         toolbar.targetComponent = this
-        add(toolbar.component, BorderLayout.NORTH)
+
+        val top = JPanel(BorderLayout())
+        top.add(toolbar.component, BorderLayout.WEST)
+        top.add(filterField, BorderLayout.CENTER)
+        add(top, BorderLayout.NORTH)
         add(ScrollPaneFactory.createScrollPane(table), BorderLayout.CENTER)
-        emptyLabel.border = JBUI.Borders.empty(8)
+
+        filterField.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) = applyFilter()
+        })
 
         table.addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
@@ -65,54 +81,65 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
         refresh()
     }
 
-    private fun selected(): WorktreeInfo? =
-        table.selectedRow.takeIf { it >= 0 }?.let { tableModel.rowAt(table.convertRowIndexToModel(it)) }
+    private fun applyFilter() {
+        val text = filterField.text.trim()
+        sorter.rowFilter =
+            if (text.isEmpty()) null
+            else RowFilter.regexFilter("(?i)" + Pattern.quote(text))
+    }
+
+    private fun selected(): WorktreeRow? =
+        table.selectedRow.takeIf { it >= 0 }
+            ?.let { tableModel.rowAt(table.convertRowIndexToModel(it)) }
 
     private fun refresh() {
         runInBackground("Loading worktrees") {
-            val worktrees = service.listAll()
+            val rows = service.listRows()
             ApplicationManager.getApplication().invokeLater {
-                tableModel.setRows(worktrees)
+                tableModel.setRows(rows)
             }
         }
     }
 
-    private fun openWorktree(wt: WorktreeInfo) {
-        if (wt.isCurrent) {
+    private fun openWorktree(row: WorktreeRow) {
+        val path = row.worktreePath ?: return
+        if (row.isCurrent) {
             Messages.showInfoMessage(project, "This worktree is already open.", "Open Worktree")
             return
         }
-        ProjectUtil.openOrImport(Path.of(wt.path), project, /* forceOpenInNewFrame = */ true)
+        ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
     }
 
-    private fun removeWorktree(wt: WorktreeInfo) {
-        if (wt.isCurrent) {
+    private fun deleteRow(row: WorktreeRow) {
+        if (row.isCurrent) {
             Messages.showWarningDialog(
                 project,
-                "You cannot remove the worktree currently open in this window.",
-                "Remove Worktree",
+                "You cannot delete the worktree currently open in this window.",
+                "Delete",
             )
             return
         }
-        val repo = service.repositoryFor(wt.path)
+        val repo = service.repositoryByRoot(row.repositoryRoot)
         if (repo == null) {
-            Messages.showErrorDialog(project, "Could not find the repository owning this worktree.", "Remove Worktree")
+            Messages.showErrorDialog(project, "Could not find the owning repository.", "Delete")
             return
         }
-        val dialog = RemoveWorktreeDialog(project, wt)
+        val dialog = DeleteDialog(project, row)
         if (!dialog.showAndGet()) return
         val opts = dialog.options()
 
-        runInBackground("Removing worktree") {
-            val removeResult = service.remove(repo, wt.path, opts.force)
-            if (!removeResult.success()) {
-                notifyError("Failed to remove worktree", removeResult.errorOutputAsJoinedString)
-                return@runInBackground
+        runInBackground("Deleting") {
+            if (opts.removeWorktree && row.worktreePath != null) {
+                val result = service.remove(repo, row.worktreePath, opts.force)
+                if (!result.success()) {
+                    notifyError("Failed to remove worktree", result.errorOutputAsJoinedString)
+                    return@runInBackground
+                }
             }
-            if (opts.deleteBranch && wt.branch != null) {
-                val branchResult = service.deleteBranch(repo, wt.branch, force = opts.force)
-                if (!branchResult.success()) {
-                    notifyError("Worktree removed, but branch deletion failed", branchResult.errorOutputAsJoinedString)
+            if (opts.deleteBranch && row.branch != null) {
+                val result = service.deleteBranch(repo, row.branch, force = opts.force)
+                if (!result.success()) {
+                    notifyError("Branch deletion failed", result.errorOutputAsJoinedString)
                 }
             }
             refresh()
@@ -138,10 +165,14 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
         }.queue()
     }
 
+    private fun canDelete(row: WorktreeRow?): Boolean =
+        row != null && !row.isCurrent && !row.isBare &&
+            ((row.hasWorktree) || row.hasBranch)
+
     // --- Toolbar actions -------------------------------------------------
 
     private inner class RefreshAction :
-        AnAction("Refresh", "Reload the worktree list", AllIcons.Actions.Refresh) {
+        AnAction("Refresh", "Reload worktrees and branches", AllIcons.Actions.Refresh) {
         override fun actionPerformed(e: AnActionEvent) = refresh()
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
@@ -150,17 +181,17 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
         AnAction("Open in New Window", "Open the selected worktree in a new IDE window", AllIcons.Actions.MoveToWindow) {
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { openWorktree(it) } ?: Unit
         override fun update(e: AnActionEvent) {
-            e.presentation.isEnabled = selected()?.isCurrent == false
+            val row = selected()
+            e.presentation.isEnabled = row != null && row.hasWorktree && !row.isCurrent
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
-    private inner class RemoveAction :
-        AnAction("Remove", "Remove the selected worktree", AllIcons.General.Remove) {
-        override fun actionPerformed(e: AnActionEvent) = selected()?.let { removeWorktree(it) } ?: Unit
+    private inner class DeleteAction :
+        AnAction("Delete", "Remove the selected worktree and/or branch", AllIcons.General.Remove) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.let { deleteRow(it) } ?: Unit
         override fun update(e: AnActionEvent) {
-            val wt = selected()
-            e.presentation.isEnabled = wt != null && !wt.isCurrent && !wt.isBare
+            e.presentation.isEnabled = canDelete(selected())
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }

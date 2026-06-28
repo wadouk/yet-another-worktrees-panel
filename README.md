@@ -4,10 +4,20 @@ An IntelliJ Platform plugin to manage your Git worktrees from a dedicated tool w
 
 ## Features
 
-- **List** every worktree of the project's repositories (branch, path, status).
+- **List** every worktree of the project's repositories **and** every local branch
+  that has no worktree of its own — each row shows its upstream tracking status
+  (↑ahead / ↓behind, `gone`, `✓`).
+- **Sort** by any column and **filter** the table live with the search field
+  (matches branch / path / status, case-insensitive).
 - **Open** a worktree in a new IDE window (toolbar action or double-click).
-- **Remove / prune** a worktree, optionally deleting its branch — with guard rails
-  (you can't remove the worktree currently open, force is opt-in, branch deletion is opt-in).
+- **Delete** adaptively, depending on what exists for the selected row:
+  - worktree + branch → remove the worktree, optionally also delete the branch;
+  - branch only → delete the branch;
+  - detached worktree → remove the worktree.
+- **Prune** worktree metadata for directories that no longer exist.
+
+Guard rails: the worktree currently open can't be deleted, the bare entry is
+protected, and the destructive `--force` / `-D` is always opt-in.
 
 The plugin drives the bundled Git integration (`git4idea`), so it uses the same
 Git executable IntelliJ is configured with.
@@ -33,13 +43,18 @@ Install the built zip via *Settings → Plugins → ⚙ → Install Plugin from 
 
 ```
 src/main/kotlin/com/comet/worktreemanager/
-├── model/WorktreeInfo.kt              # data model
+├── model/
+│   ├── WorktreeInfo.kt                # raw `git worktree list` entry
+│   └── WorktreeRow.kt                 # unified worktree-or-branch table row
 ├── service/
-│   ├── WorktreeParser.kt              # pure parser for `git worktree list --porcelain`
-│   └── WorktreeService.kt             # git4idea-backed operations (list/remove/prune)
+│   ├── WorktreeParser.kt             # pure parser for `git worktree list --porcelain`
+│   ├── BranchRefParser.kt            # pure parser for `git for-each-ref` (tracking)
+│   ├── WorktreeRowBuilder.kt         # pure merge of worktrees + branches into rows
+│   ├── GitWorktreeCommand.kt         # reflective `worktree` GitCommand
+│   └── WorktreeService.kt            # git4idea-backed operations
 └── toolwindow/
     ├── WorktreeToolWindowFactory.kt   # registers the tool window
-    ├── WorktreePanel.kt               # toolbar + table UI
-    ├── WorktreeTableModel.kt          # table model
-    └── RemoveWorktreeDialog.kt        # remove confirmation with guard rails
+    ├── WorktreePanel.kt               # toolbar + filter + sortable table
+    ├── WorktreeTableModel.kt          # 4-column table model
+    └── DeleteDialog.kt                # adaptive delete confirmation (worktree/branch)
 ```
