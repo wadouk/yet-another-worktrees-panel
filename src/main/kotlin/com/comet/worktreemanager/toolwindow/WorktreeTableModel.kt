@@ -17,12 +17,13 @@ class WorktreeTableModel : AbstractTableModel() {
 
     override fun getRowCount(): Int = rows.size
 
-    override fun getColumnCount(): Int = 4
+    override fun getColumnCount(): Int = 5
 
     override fun getColumnName(column: Int): String = when (column) {
         0 -> "Branch"
         1 -> "Worktree"
         2 -> "Tracking"
+        3 -> "Changes"
         else -> "Status"
     }
 
@@ -32,6 +33,7 @@ class WorktreeTableModel : AbstractTableModel() {
             0 -> row.refLabel
             1 -> row.worktreeLabel
             2 -> row.trackingLabel
+            3 -> row.changesLabel
             else -> row.statusLabel
         }
     }

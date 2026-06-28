@@ -22,9 +22,19 @@ data class WorktreeRow(
     val isPrunable: Boolean,
     val isCurrent: Boolean,
     val repositoryRoot: String,
+    /** Working-tree dirtiness; null when there is no worktree or it's unknown. */
+    val workingTree: WorkingTreeStatus? = null,
 ) {
     val hasWorktree: Boolean get() = worktreePath != null
     val hasBranch: Boolean get() = branch != null
+
+    /** Changes column: working-tree dirtiness, or em dash when not applicable. */
+    val changesLabel: String
+        get() = when {
+            !hasWorktree -> "—"
+            workingTree == null -> "—"
+            else -> workingTree.shortLabel
+        }
 
     /** Branch column. */
     val refLabel: String

@@ -7,6 +7,9 @@ An IntelliJ Platform plugin to manage your Git worktrees from a dedicated tool w
 - **List** every worktree of the project's repositories **and** every local branch
   that has no worktree of its own — each row shows its upstream tracking status
   (↑ahead / ↓behind, `gone`, `✓`).
+- **Working-tree status** for each existing worktree (`clean`, or `+staged ~modified
+  ?untracked !conflicts`) from `git status --porcelain`.
+- **Show in Git Log** (right-click) jumps to the branch in the commit graph.
 - **Sort** by any column and **filter** the table live with the search field
   (matches branch / path / status, case-insensitive).
 - **Open** a worktree in a new IDE window (toolbar action or double-click).

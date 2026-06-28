@@ -51,7 +51,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
             val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
             return when (convertColumnIndexToModel(viewCol)) {
                 2 -> trackingTooltip(row)
-                3 -> statusTooltip(row)
+                3 -> changesTooltip(row)
+                4 -> statusTooltip(row)
                 else -> null
             }
         }
@@ -145,6 +146,18 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
                 }.joinToString(", "),
             )
         }
+    }
+
+    private fun changesTooltip(row: WorktreeRow): String {
+        if (!row.hasWorktree) return "No worktree (branch only)"
+        val s = row.workingTree ?: return "Working-tree status unavailable"
+        if (s.isClean) return "Working tree is clean"
+        return buildList {
+            if (s.staged > 0) add("${s.staged} staged")
+            if (s.modified > 0) add("${s.modified} modified")
+            if (s.untracked > 0) add("${s.untracked} untracked")
+            if (s.conflicted > 0) add("${s.conflicted} conflicted")
+        }.joinToString(", ")
     }
 
     private fun statusTooltip(row: WorktreeRow): String {

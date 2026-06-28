@@ -1,5 +1,6 @@
 package com.comet.worktreemanager.service
 
+import com.comet.worktreemanager.model.WorkingTreeStatus
 import com.comet.worktreemanager.model.WorktreeInfo
 import com.comet.worktreemanager.model.WorktreeRow
 import com.intellij.openapi.components.Service
@@ -11,6 +12,7 @@ import git4idea.commands.GitCommandResult
 import git4idea.commands.GitLineHandler
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryManager
+import java.io.File
 
 /**
  * Drives `git worktree` / branch operations through the bundled git4idea command
@@ -37,8 +39,27 @@ class WorktreeService(private val project: Project) {
         repositories()
             .flatMap { repo ->
                 WorktreeRowBuilder.build(listWorktrees(repo), listBranches(repo), repo.root.path)
+                    .map { row ->
+                        if (row.hasWorktree && !row.isBare) {
+                            row.copy(workingTree = workingTreeStatus(row.worktreePath!!))
+                        } else {
+                            row
+                        }
+                    }
             }
             .distinctBy { (it.worktreePath ?: it.branch).orEmpty() + "@" + it.repositoryRoot }
+
+    /** Working-tree dirtiness of a worktree, via `git status --porcelain`. */
+    fun workingTreeStatus(worktreePath: String): WorkingTreeStatus? {
+        val handler = GitLineHandler(project, File(worktreePath), GitCommand.STATUS)
+        handler.addParameters("--porcelain")
+        val result = Git.getInstance().runCommand(handler)
+        if (!result.success()) {
+            thisLogger().warn("git status failed for $worktreePath: ${result.errorOutputAsJoinedString}")
+            return null
+        }
+        return GitStatusParser.parse(result.output)
+    }
 
     /** Worktrees of a single repository, via `git worktree list --porcelain`. */
     fun listWorktrees(repo: GitRepository): List<WorktreeInfo> {
