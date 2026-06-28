@@ -1,4 +1,4 @@
-# Worktree Manager
+# Yet Another Worktrees Panel
 
 An IntelliJ Platform plugin to manage your Git worktrees from a **"Worktrees" tab** inside the
 Version Control tool window (the existing Git tool window). The UI is localized in **English and

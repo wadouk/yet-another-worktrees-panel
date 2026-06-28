@@ -1,6 +1,6 @@
 <idea-plugin>
     <id>com.comet.worktree-manager</id>
-    <name>Worktree Manager</name>
+    <name>Yet Another Worktrees Panel</name>
     <vendor email="nicolas.betheuil@comet.team">Nicolas Betheuil</vendor>
 
     <description><![CDATA[
