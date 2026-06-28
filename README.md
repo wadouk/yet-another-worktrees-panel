@@ -15,8 +15,9 @@ French**.
   ?untracked !conflicts`) from `git status --porcelain`.
 - **Activity** column (relative, e.g. `3 days ago`): the most recent uncommitted file
   change for a dirty worktree, otherwise the last commit. Sorts chronologically.
-- **Cleanup** column: a derived hint — `prunable` (merged into the default branch **and**
-  clean) or `almost prunable` (upstream gone **and** clean) — to spot what's safe to delete.
+- **Cleanup** column: a derived hint — `obsolete` (merged into the default branch **and**
+  clean) or `likely obsolete` (upstream gone **and** clean) — to spot what's safe to delete.
+  (This is unrelated to `git worktree prune`, which only removes metadata for missing dirs.)
 - Worktree paths are shown **relative to the main worktree** (full path on hover).
 - The **current** worktree's branch is shown in **bold with a yellow `HEAD` tag**.
 - **Show in Git Log** (right-click) jumps to the branch in the commit graph.

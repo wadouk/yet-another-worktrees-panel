@@ -5,7 +5,7 @@ import com.comet.worktreemanager.model.WorktreeRow
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class PruneCandidateTest {
+class CleanupCandidateTest {
 
     private fun row(
         branch: String? = "feature",
@@ -22,29 +22,29 @@ class PruneCandidateTest {
         workingTree = workingTree, isMerged = isMerged, defaultBranch = defaultBranch,
     )
 
-    /** Merged + clean → prunable. */
+    /** Merged + clean → obsolete. */
     @Test
-    fun mergedAndCleanIsPrunable() {
-        assertEquals(PruneCategory.PRUNABLE, PruneCandidate.of(row(isMerged = true)))
+    fun mergedAndCleanIsObsolete() {
+        assertEquals(CleanupCategory.OBSOLETE, CleanupCandidate.of(row(isMerged = true)))
     }
 
-    /** Upstream gone + clean → almost prunable. */
+    /** Upstream gone + clean → likely obsolete. */
     @Test
-    fun goneAndCleanIsAlmostPrunable() {
-        assertEquals(PruneCategory.ALMOST_PRUNABLE, PruneCandidate.of(row(isMerged = false, isGone = true)))
+    fun goneAndCleanIsLikelyObsolete() {
+        assertEquals(CleanupCategory.LIKELY_OBSOLETE, CleanupCandidate.of(row(isMerged = false, isGone = true)))
     }
 
     /** Dirty worktree is never a candidate, even when merged. */
     @Test
     fun dirtyIsNeverCandidate() {
         val dirty = row(isMerged = true, workingTree = WorkingTreeStatus(0, 2, 0, 0))
-        assertEquals(PruneCategory.NONE, PruneCandidate.of(dirty))
+        assertEquals(CleanupCategory.NONE, CleanupCandidate.of(dirty))
     }
 
     /** The default branch and the current worktree are never flagged. */
     @Test
     fun defaultAndCurrentAreExcluded() {
-        assertEquals(PruneCategory.NONE, PruneCandidate.of(row(branch = "main", isMerged = true)))
-        assertEquals(PruneCategory.NONE, PruneCandidate.of(row(isMerged = true, isCurrent = true)))
+        assertEquals(CleanupCategory.NONE, CleanupCandidate.of(row(branch = "main", isMerged = true)))
+        assertEquals(CleanupCategory.NONE, CleanupCandidate.of(row(isMerged = true, isCurrent = true)))
     }
 }

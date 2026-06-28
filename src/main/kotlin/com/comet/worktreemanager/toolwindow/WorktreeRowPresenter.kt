@@ -2,8 +2,8 @@ package com.comet.worktreemanager.toolwindow
 
 import com.comet.worktreemanager.i18n.WorktreeBundle
 import com.comet.worktreemanager.model.WorktreeRow
-import com.comet.worktreemanager.service.PruneCandidate
-import com.comet.worktreemanager.service.PruneCategory
+import com.comet.worktreemanager.service.CleanupCandidate
+import com.comet.worktreemanager.service.CleanupCategory
 import java.nio.file.Path
 
 /**
@@ -38,10 +38,10 @@ object WorktreeRowPresenter {
         path
     }
 
-    fun cleanup(row: WorktreeRow): String = when (PruneCandidate.of(row)) {
-        PruneCategory.PRUNABLE -> WorktreeBundle.message("cleanup.prunable")
-        PruneCategory.ALMOST_PRUNABLE -> WorktreeBundle.message("cleanup.almostPrunable")
-        PruneCategory.NONE -> WorktreeBundle.message("cleanup.none")
+    fun cleanup(row: WorktreeRow): String = when (CleanupCandidate.of(row)) {
+        CleanupCategory.OBSOLETE -> WorktreeBundle.message("cleanup.obsolete")
+        CleanupCategory.LIKELY_OBSOLETE -> WorktreeBundle.message("cleanup.likelyObsolete")
+        CleanupCategory.NONE -> WorktreeBundle.message("cleanup.none")
     }
 
     fun tracking(row: WorktreeRow): String = when {
@@ -123,9 +123,9 @@ object WorktreeRowPresenter {
         }
     }
 
-    fun cleanupTooltip(row: WorktreeRow): String = when (PruneCandidate.of(row)) {
-        PruneCategory.PRUNABLE -> WorktreeBundle.message("tooltip.cleanup.prunable")
-        PruneCategory.ALMOST_PRUNABLE -> WorktreeBundle.message("tooltip.cleanup.almostPrunable")
-        PruneCategory.NONE -> WorktreeBundle.message("tooltip.cleanup.none")
+    fun cleanupTooltip(row: WorktreeRow): String = when (CleanupCandidate.of(row)) {
+        CleanupCategory.OBSOLETE -> WorktreeBundle.message("tooltip.cleanup.obsolete")
+        CleanupCategory.LIKELY_OBSOLETE -> WorktreeBundle.message("tooltip.cleanup.likelyObsolete")
+        CleanupCategory.NONE -> WorktreeBundle.message("tooltip.cleanup.none")
     }
 }
