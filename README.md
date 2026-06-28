@@ -1,8 +1,8 @@
 # Worktree Manager
 
-An IntelliJ Platform plugin to manage your Git worktrees from a **"Pruning" tab** inside the
+An IntelliJ Platform plugin to manage your Git worktrees from a **"Worktrees" tab** inside the
 Version Control tool window (the existing Git tool window). The UI is localized in **English and
-French** (« Élagage »).
+French**.
 
 ## Features
 
@@ -15,15 +15,18 @@ French** (« Élagage »).
   ?untracked !conflicts`) from `git status --porcelain`.
 - **Activity** column (relative, e.g. `3 days ago`): the most recent uncommitted file
   change for a dirty worktree, otherwise the last commit. Sorts chronologically.
+- **Cleanup** column: a derived hint — `prunable` (merged into the default branch **and**
+  clean) or `almost prunable` (upstream gone **and** clean) — to spot what's safe to delete.
+- Worktree paths are shown **relative to the main worktree** (full path on hover).
+- The **current** worktree's branch is shown in **bold with a yellow `HEAD` tag**.
 - **Show in Git Log** (right-click) jumps to the branch in the commit graph.
-- **Sort** by any column and **filter** the table live with the search field
-  (matches branch / path / status, case-insensitive).
+- **Sort** by any column and **filter** the table live with the search field.
 - **Open** a worktree in a new IDE window (toolbar action or double-click).
 - **Delete** adaptively, depending on what exists for the selected row:
   - worktree + branch → remove the worktree, optionally also delete the branch;
   - branch only → delete the branch;
   - detached worktree → remove the worktree.
-- **Prune** worktree metadata for directories that no longer exist.
+- **Prune** worktree metadata for directories that no longer exist (with a confirmation dialog).
 
 Guard rails: the worktree currently open can't be deleted, the bare entry is
 protected, and the destructive `--force` / `-D` is always opt-in.

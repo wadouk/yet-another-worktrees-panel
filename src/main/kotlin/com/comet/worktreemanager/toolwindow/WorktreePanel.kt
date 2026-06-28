@@ -53,11 +53,12 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             if (viewRow < 0 || viewCol < 0) return null
             val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
             return when (convertColumnIndexToModel(viewCol)) {
+                1 -> WorktreeRowPresenter.worktreeTooltip(row)
                 2 -> WorktreeRowPresenter.trackingTooltip(row)
                 3 -> WorktreeRowPresenter.mergedTooltip(row)
                 4 -> WorktreeRowPresenter.changesTooltip(row)
                 5 -> WorktreeRowPresenter.activityTooltip(row)
-                6 -> WorktreeRowPresenter.statusTooltip(row)
+                6 -> WorktreeRowPresenter.cleanupTooltip(row)
                 else -> null
             }
         }
@@ -65,8 +66,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         setShowGrid(false)
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
         rowSorter = sorter
-        emptyText.text = WorktreeBundle.message("table.empty")
+        // Show "loading" until the first load completes (avoids a misleading
+        // "no worktrees" flash while git runs in the background).
+        emptyText.text = WorktreeBundle.message("table.loading")
         ToolTipManager.sharedInstance().registerComponent(this)
+        getColumnModel().getColumn(0).cellRenderer = WorktreeBranchRenderer(tableModel)
     }
     private val filterField = SearchTextField().apply {
         textEditor.emptyText.text = WorktreeBundle.message("filter.placeholder")
@@ -153,6 +157,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             val rows = service.listRows()
             ApplicationManager.getApplication().invokeLater {
                 tableModel.setRows(rows)
+                // After the first load, an empty table means there really is nothing.
+                table.emptyText.text = WorktreeBundle.message("table.empty")
             }
         }
     }
@@ -211,8 +217,16 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     }
 
     private fun pruneAll() {
+        val repos = service.repositories()
+        val confirmed = Messages.showYesNoDialog(
+            project,
+            WorktreeBundle.message("dialog.prune.message", repos.size),
+            WorktreeBundle.message("dialog.prune.title"),
+            Messages.getQuestionIcon(),
+        )
+        if (confirmed != Messages.YES) return
         runInBackground(WorktreeBundle.message("task.pruning")) {
-            service.repositories().forEach { repo: GitRepository -> service.prune(repo) }
+            repos.forEach { repo: GitRepository -> service.prune(repo) }
             refresh()
         }
     }

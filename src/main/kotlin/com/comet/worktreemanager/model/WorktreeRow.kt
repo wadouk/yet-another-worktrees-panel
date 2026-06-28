@@ -32,6 +32,8 @@ data class WorktreeRow(
     val lastActivityMillis: Long? = null,
     /** True when [lastActivityMillis] came from an uncommitted file, not a commit. */
     val lastActivityIsFile: Boolean = false,
+    /** Path of the repo's main worktree, used to show paths relatively; null if unknown. */
+    val mainWorktreePath: String? = null,
 ) {
     // Pure data only — display strings are built in the presentation layer
     // (com.comet.worktreemanager.toolwindow.WorktreeRowPresenter) so the model

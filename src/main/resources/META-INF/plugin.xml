@@ -19,7 +19,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <changesViewContent
-            tabName="Pruning"
+            tabName="Worktrees"
             className="com.comet.worktreemanager.toolwindow.WorktreePruningContentProvider"
             displayNameSupplierClassName="com.comet.worktreemanager.toolwindow.WorktreeTabName"
             predicateClassName="com.comet.worktreemanager.toolwindow.WorktreeTabVisibility"/>

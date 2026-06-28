@@ -27,7 +27,7 @@ class WorktreeTableModel : AbstractTableModel() {
         3 -> WorktreeBundle.message("column.merged")
         4 -> WorktreeBundle.message("column.changes")
         5 -> WorktreeBundle.message("column.activity")
-        else -> WorktreeBundle.message("column.status")
+        else -> WorktreeBundle.message("column.cleanup")
     }
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
@@ -39,7 +39,7 @@ class WorktreeTableModel : AbstractTableModel() {
             3 -> WorktreeRowPresenter.merged(row)
             4 -> WorktreeRowPresenter.changes(row)
             5 -> RelativeTimeCell(row.lastActivityMillis)
-            else -> WorktreeRowPresenter.status(row)
+            else -> WorktreeRowPresenter.cleanup(row)
         }
     }
 

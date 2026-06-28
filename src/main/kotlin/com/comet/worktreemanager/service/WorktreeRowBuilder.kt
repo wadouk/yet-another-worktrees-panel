@@ -18,6 +18,8 @@ object WorktreeRowBuilder {
         val byName = branches.associateBy { it.name }
         val consumed = mutableSetOf<String>()
         val rows = mutableListOf<WorktreeRow>()
+        // git lists the main worktree first; used to show paths relatively.
+        val mainPath = worktrees.firstOrNull { !it.isBare }?.path
 
         for (wt in worktrees) {
             val branch = wt.branch
@@ -37,6 +39,7 @@ object WorktreeRowBuilder {
                 isPrunable = wt.isPrunable,
                 isCurrent = wt.isCurrent,
                 repositoryRoot = repositoryRoot,
+                mainWorktreePath = mainPath,
             )
         }
 
@@ -56,6 +59,7 @@ object WorktreeRowBuilder {
                 isPrunable = false,
                 isCurrent = false,
                 repositoryRoot = repositoryRoot,
+                mainWorktreePath = mainPath,
             )
         }
 

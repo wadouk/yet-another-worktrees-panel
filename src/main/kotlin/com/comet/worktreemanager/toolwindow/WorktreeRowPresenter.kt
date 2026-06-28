@@ -2,6 +2,9 @@ package com.comet.worktreemanager.toolwindow
 
 import com.comet.worktreemanager.i18n.WorktreeBundle
 import com.comet.worktreemanager.model.WorktreeRow
+import com.comet.worktreemanager.service.PruneCandidate
+import com.comet.worktreemanager.service.PruneCategory
+import java.nio.file.Path
 
 /**
  * Presentation layer: builds the translated, user-facing labels and tooltips for
@@ -20,8 +23,26 @@ object WorktreeRowPresenter {
         else -> WorktreeBundle.message("ref.detached")
     }
 
-    fun worktree(row: WorktreeRow): String =
-        row.worktreePath ?: WorktreeBundle.message("worktree.none")
+    /** Worktree path shown relative to the main worktree (its parent dir). */
+    fun worktree(row: WorktreeRow): String {
+        val path = row.worktreePath ?: return WorktreeBundle.message("worktree.none")
+        val main = row.mainWorktreePath ?: return path
+        return relativize(main, path)
+    }
+
+    private fun relativize(mainPath: String, path: String): String = try {
+        val base = Path.of(mainPath).parent ?: return path
+        val rel = base.relativize(Path.of(path)).toString()
+        if (rel.isEmpty() || rel.startsWith("..")) path else rel
+    } catch (e: Exception) {
+        path
+    }
+
+    fun cleanup(row: WorktreeRow): String = when (PruneCandidate.of(row)) {
+        PruneCategory.PRUNABLE -> WorktreeBundle.message("cleanup.prunable")
+        PruneCategory.ALMOST_PRUNABLE -> WorktreeBundle.message("cleanup.almostPrunable")
+        PruneCategory.NONE -> WorktreeBundle.message("cleanup.none")
+    }
 
     fun tracking(row: WorktreeRow): String = when {
         row.upstream == null -> WorktreeBundle.message("tracking.none")
@@ -51,14 +72,10 @@ object WorktreeRowPresenter {
         }.joinToString(" ")
     }
 
-    fun status(row: WorktreeRow): String = buildList {
-        if (row.isCurrent) add(WorktreeBundle.message("status.current"))
-        if (!row.hasWorktree && row.hasBranch) add(WorktreeBundle.message("status.noWorktree"))
-        if (row.isLocked) add(WorktreeBundle.message("status.locked"))
-        if (row.isPrunable) add(WorktreeBundle.message("status.prunable"))
-    }.joinToString(", ")
-
     // --- Tooltips --------------------------------------------------------
+
+    /** Absolute worktree path as the Worktree column tooltip, or null. */
+    fun worktreeTooltip(row: WorktreeRow): String? = row.worktreePath
 
     fun trackingTooltip(row: WorktreeRow): String = when {
         row.upstream == null -> WorktreeBundle.message("tooltip.tracking.noUpstream")
@@ -106,14 +123,9 @@ object WorktreeRowPresenter {
         }
     }
 
-    fun statusTooltip(row: WorktreeRow): String {
-        val parts = buildList {
-            if (row.isCurrent) add(WorktreeBundle.message("tooltip.status.current"))
-            if (!row.hasWorktree && row.hasBranch) add(WorktreeBundle.message("tooltip.status.noWorktree"))
-            if (row.isLocked) add(WorktreeBundle.message("tooltip.status.locked"))
-            if (row.isPrunable) add(WorktreeBundle.message("tooltip.status.prunable"))
-            if (row.isBare) add(WorktreeBundle.message("tooltip.status.bare"))
-        }
-        return if (parts.isEmpty()) WorktreeBundle.message("tooltip.status.none") else parts.joinToString("; ")
+    fun cleanupTooltip(row: WorktreeRow): String = when (PruneCandidate.of(row)) {
+        PruneCategory.PRUNABLE -> WorktreeBundle.message("tooltip.cleanup.prunable")
+        PruneCategory.ALMOST_PRUNABLE -> WorktreeBundle.message("tooltip.cleanup.almostPrunable")
+        PruneCategory.NONE -> WorktreeBundle.message("tooltip.cleanup.none")
     }
 }
