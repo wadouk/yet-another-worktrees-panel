@@ -33,55 +33,9 @@ data class WorktreeRow(
     /** True when [lastActivityMillis] came from an uncommitted file, not a commit. */
     val lastActivityIsFile: Boolean = false,
 ) {
+    // Pure data only — display strings are built in the presentation layer
+    // (com.comet.worktreemanager.toolwindow.WorktreeRowPresenter) so the model
+    // stays free of i18n and the current clock.
     val hasWorktree: Boolean get() = worktreePath != null
     val hasBranch: Boolean get() = branch != null
-
-    /** Merged column: merged/unmerged vs the default branch, or "default"/"—". */
-    val mergedLabel: String
-        get() = when {
-            branch != null && branch == defaultBranch -> "default"
-            isMerged == true -> "merged"
-            isMerged == false -> "unmerged"
-            else -> "—"
-        }
-
-    /** Changes column: working-tree dirtiness, or em dash when not applicable. */
-    val changesLabel: String
-        get() = when {
-            !hasWorktree -> "—"
-            workingTree == null -> "—"
-            else -> workingTree.shortLabel
-        }
-
-    /** Branch column. */
-    val refLabel: String
-        get() = when {
-            isBare -> "(bare)"
-            branch != null -> branch
-            isDetached && head != null -> "(detached ${head.take(7)})"
-            else -> "(detached)"
-        }
-
-    /** Worktree column: the path, or an em dash when the branch has none. */
-    val worktreeLabel: String get() = worktreePath ?: "—"
-
-    /** Tracking column: ↑ahead / ↓behind vs upstream, "gone", "✓", or em dash. */
-    val trackingLabel: String
-        get() = when {
-            upstream == null -> "—"
-            isGone -> "gone"
-            else -> buildList {
-                if (ahead > 0) add("↑$ahead")
-                if (behind > 0) add("↓$behind")
-            }.ifEmpty { listOf("✓") }.joinToString(" ")
-        }
-
-    /** Status column: state flags. */
-    val statusLabel: String
-        get() = buildList {
-            if (isCurrent) add("current")
-            if (!hasWorktree && hasBranch) add("no worktree")
-            if (isLocked) add("locked")
-            if (isPrunable) add("prunable")
-        }.joinToString(", ")
 }

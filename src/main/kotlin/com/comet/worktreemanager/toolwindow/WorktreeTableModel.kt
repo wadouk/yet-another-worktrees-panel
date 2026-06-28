@@ -1,9 +1,10 @@
 package com.comet.worktreemanager.toolwindow
 
+import com.comet.worktreemanager.i18n.WorktreeBundle
 import com.comet.worktreemanager.model.WorktreeRow
 import javax.swing.table.AbstractTableModel
 
-/** Backs the table: Branch / Worktree / Tracking / Status columns. */
+/** Backs the table: Branch / Worktree / Tracking / Merged / Changes / Activity / Status. */
 class WorktreeTableModel : AbstractTableModel() {
 
     private var rows: List<WorktreeRow> = emptyList()
@@ -20,25 +21,25 @@ class WorktreeTableModel : AbstractTableModel() {
     override fun getColumnCount(): Int = 7
 
     override fun getColumnName(column: Int): String = when (column) {
-        0 -> "Branch"
-        1 -> "Worktree"
-        2 -> "Tracking"
-        3 -> "Merged"
-        4 -> "Changes"
-        5 -> "Activity"
-        else -> "Status"
+        0 -> WorktreeBundle.message("column.branch")
+        1 -> WorktreeBundle.message("column.worktree")
+        2 -> WorktreeBundle.message("column.tracking")
+        3 -> WorktreeBundle.message("column.merged")
+        4 -> WorktreeBundle.message("column.changes")
+        5 -> WorktreeBundle.message("column.activity")
+        else -> WorktreeBundle.message("column.status")
     }
 
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
         val row = rows[rowIndex]
         return when (columnIndex) {
-            0 -> row.refLabel
-            1 -> row.worktreeLabel
-            2 -> row.trackingLabel
-            3 -> row.mergedLabel
-            4 -> row.changesLabel
+            0 -> WorktreeRowPresenter.branch(row)
+            1 -> WorktreeRowPresenter.worktree(row)
+            2 -> WorktreeRowPresenter.tracking(row)
+            3 -> WorktreeRowPresenter.merged(row)
+            4 -> WorktreeRowPresenter.changes(row)
             5 -> RelativeTimeCell(row.lastActivityMillis)
-            else -> row.statusLabel
+            else -> WorktreeRowPresenter.status(row)
         }
     }
 

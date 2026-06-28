@@ -1,5 +1,6 @@
 package com.comet.worktreemanager.toolwindow
 
+import com.comet.worktreemanager.i18n.WorktreeBundle
 import com.comet.worktreemanager.model.WorktreeRow
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -37,35 +38,35 @@ class DeleteDialog(
     private var force = false
 
     init {
-        title = "Delete"
-        setOKButtonText("Delete")
+        title = WorktreeBundle.message("dialog.delete.title")
+        setOKButtonText(WorktreeBundle.message("dialog.delete.ok"))
         init()
     }
 
     override fun createCenterPanel(): JComponent = panel {
         if (canRemoveWorktree) {
-            row { label("Remove worktree:") }
+            row { label(WorktreeBundle.message("dialog.delete.removeWorktree")) }
             row { label(row.worktreePath ?: "").bold() }
         }
 
         when {
             // Worktree + branch: branch removal is optional.
             canDeleteBranch && canRemoveWorktree -> row {
-                checkBox("Also delete branch '${row.branch}'")
+                checkBox(WorktreeBundle.message("dialog.delete.deleteBranch", row.branch ?: ""))
                     .applyToComponent { addActionListener { deleteBranch = isSelected } }
             }
             // Branch only: branch removal is the action itself.
             canDeleteBranch -> {
-                row { label("Delete branch:") }
+                row { label(WorktreeBundle.message("dialog.delete.branchLabel")) }
                 row { label(row.branch ?: "").bold() }
             }
         }
 
         row {
             val text = if (canRemoveWorktree) {
-                "Force (discard uncommitted changes / untracked files)"
+                WorktreeBundle.message("dialog.delete.force.worktree")
             } else {
-                "Force (-D, delete even if the branch is not fully merged)"
+                WorktreeBundle.message("dialog.delete.force.branch")
             }
             checkBox(text).applyToComponent { addActionListener { force = isSelected } }
         }

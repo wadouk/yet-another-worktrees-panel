@@ -1,11 +1,11 @@
 package com.comet.worktreemanager.toolwindow
 
+import com.comet.worktreemanager.i18n.WorktreeBundle
 import com.comet.worktreemanager.model.WorktreeRow
-import com.comet.worktreemanager.service.RelativeTime
 import com.comet.worktreemanager.service.WorktreeService
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.Disposable
 import com.intellij.ide.impl.ProjectUtil
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -36,9 +36,10 @@ import javax.swing.event.DocumentEvent
 import javax.swing.table.TableRowSorter
 
 /**
- * The Worktrees tool window content: a toolbar (Refresh / Open / Delete / Prune)
- * and a filter field above a sortable, filterable table of worktrees and
- * branches. Double-clicking a worktree row opens it in a new window.
+ * The "Pruning" tab content: a toolbar (Refresh / Open / Delete / Prune) and a
+ * filter field above a sortable, filterable table of worktrees and branches.
+ * Double-clicking a worktree row opens it in a new window. User-facing strings
+ * come from [WorktreeBundle]; cell/tooltip text is built by [WorktreeRowPresenter].
  */
 class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
 
@@ -52,11 +53,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             if (viewRow < 0 || viewCol < 0) return null
             val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
             return when (convertColumnIndexToModel(viewCol)) {
-                2 -> trackingTooltip(row)
-                3 -> mergedTooltip(row)
-                4 -> changesTooltip(row)
-                5 -> activityTooltip(row)
-                6 -> statusTooltip(row)
+                2 -> WorktreeRowPresenter.trackingTooltip(row)
+                3 -> WorktreeRowPresenter.mergedTooltip(row)
+                4 -> WorktreeRowPresenter.changesTooltip(row)
+                5 -> WorktreeRowPresenter.activityTooltip(row)
+                6 -> WorktreeRowPresenter.statusTooltip(row)
                 else -> null
             }
         }
@@ -64,11 +65,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         setShowGrid(false)
         selectionModel.selectionMode = ListSelectionModel.SINGLE_SELECTION
         rowSorter = sorter
-        emptyText.text = "No worktrees or branches found"
+        emptyText.text = WorktreeBundle.message("table.empty")
         ToolTipManager.sharedInstance().registerComponent(this)
     }
     private val filterField = SearchTextField().apply {
-        textEditor.emptyText.text = "Filter branch / path / status"
+        textEditor.emptyText.text = WorktreeBundle.message("filter.placeholder")
     }
 
     init {
@@ -115,10 +116,10 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     }
 
     /**
-     * Called when the tool window content is disposed (incl. dynamic plugin
-     * unload). Unregisters the table from the shared ToolTipManager so no
-     * reference to plugin classes lingers; the other listeners and the
-     * PopupHandler are tied to the (garbage-collected) table itself.
+     * Called when the tab content is disposed (incl. dynamic plugin unload).
+     * Unregisters the table from the shared ToolTipManager so no reference to
+     * plugin classes lingers; the other listeners and the PopupHandler are tied
+     * to the (garbage-collected) table itself.
      */
     override fun dispose() {
         ToolTipManager.sharedInstance().unregisterComponent(table)
@@ -147,67 +148,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         VcsLogContentUtil.runInMainLog(project) { ui -> ui.vcsLog.jumpToReference(branch) }
     }
 
-    private fun trackingTooltip(row: WorktreeRow): String = when {
-        row.upstream == null -> "No upstream branch configured"
-        row.isGone -> "Upstream '${row.upstream}' is gone (deleted on the remote)"
-        row.ahead == 0 && row.behind == 0 -> "Up to date with '${row.upstream}'"
-        else -> buildString {
-            append("Relative to '${row.upstream}': ")
-            append(
-                buildList {
-                    if (row.ahead > 0) add("${row.ahead} ahead")
-                    if (row.behind > 0) add("${row.behind} behind")
-                }.joinToString(", "),
-            )
-        }
-    }
-
-    private fun mergedTooltip(row: WorktreeRow): String {
-        if (row.branch == null) return "Not a branch"
-        val default = row.defaultBranch ?: return "Default branch is unknown"
-        return when {
-            row.branch == default -> "This is the default branch ('$default')"
-            row.isMerged == true -> "Merged into the default branch ('$default')"
-            row.isMerged == false -> "Not yet merged into the default branch ('$default')"
-            else -> "Merge status unavailable"
-        }
-    }
-
-    private fun activityTooltip(row: WorktreeRow): String {
-        val millis = row.lastActivityMillis ?: return "No activity information"
-        val relative = RelativeTime.format(millis, System.currentTimeMillis())
-        return if (row.lastActivityIsFile) {
-            "Most recent uncommitted change ($relative)"
-        } else {
-            "Last commit ($relative)"
-        }
-    }
-
-    private fun changesTooltip(row: WorktreeRow): String {
-        if (!row.hasWorktree) return "No worktree (branch only)"
-        val s = row.workingTree ?: return "Working-tree status unavailable"
-        if (s.isClean) return "Working tree is clean"
-        return buildList {
-            if (s.staged > 0) add("${s.staged} staged")
-            if (s.modified > 0) add("${s.modified} modified")
-            if (s.untracked > 0) add("${s.untracked} untracked")
-            if (s.conflicted > 0) add("${s.conflicted} conflicted")
-        }.joinToString(", ")
-    }
-
-    private fun statusTooltip(row: WorktreeRow): String {
-        val parts = buildList {
-            if (row.isCurrent) add("Currently open in this window")
-            if (!row.hasWorktree && row.hasBranch) add("Local branch with no worktree checked out")
-            if (row.isLocked) add("Worktree is locked")
-            if (row.isPrunable) add("Worktree directory is missing — prunable")
-            if (row.isBare) add("Bare repository entry")
-        }
-        return if (parts.isEmpty()) "No special status" else parts.joinToString("; ")
-    }
-
     private fun refresh() {
-        runInBackground("Loading worktrees") {
+        runInBackground(WorktreeBundle.message("task.loading")) {
             val rows = service.listRows()
             ApplicationManager.getApplication().invokeLater {
                 tableModel.setRows(rows)
@@ -218,7 +160,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     private fun openWorktree(row: WorktreeRow) {
         val path = row.worktreePath ?: return
         if (row.isCurrent) {
-            Messages.showInfoMessage(project, "This worktree is already open.", "Open Worktree")
+            Messages.showInfoMessage(
+                project,
+                WorktreeBundle.message("message.open.alreadyOpen"),
+                WorktreeBundle.message("message.open.title"),
+            )
             return
         }
         ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
@@ -228,32 +174,36 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         if (row.isCurrent) {
             Messages.showWarningDialog(
                 project,
-                "You cannot delete the worktree currently open in this window.",
-                "Delete",
+                WorktreeBundle.message("message.delete.currentWorktree"),
+                WorktreeBundle.message("dialog.delete.title"),
             )
             return
         }
         val repo = service.repositoryByRoot(row.repositoryRoot)
         if (repo == null) {
-            Messages.showErrorDialog(project, "Could not find the owning repository.", "Delete")
+            Messages.showErrorDialog(
+                project,
+                WorktreeBundle.message("message.delete.noRepo"),
+                WorktreeBundle.message("dialog.delete.title"),
+            )
             return
         }
         val dialog = DeleteDialog(project, row)
         if (!dialog.showAndGet()) return
         val opts = dialog.options()
 
-        runInBackground("Deleting") {
+        runInBackground(WorktreeBundle.message("task.deleting")) {
             if (opts.removeWorktree && row.worktreePath != null) {
                 val result = service.remove(repo, row.worktreePath, opts.force)
                 if (!result.success()) {
-                    notifyError("Failed to remove worktree", result.errorOutputAsJoinedString)
+                    notifyError(WorktreeBundle.message("message.error.removeWorktree"), result.errorOutputAsJoinedString)
                     return@runInBackground
                 }
             }
             if (opts.deleteBranch && row.branch != null) {
                 val result = service.deleteBranch(repo, row.branch, force = opts.force)
                 if (!result.success()) {
-                    notifyError("Branch deletion failed", result.errorOutputAsJoinedString)
+                    notifyError(WorktreeBundle.message("message.error.deleteBranch"), result.errorOutputAsJoinedString)
                 }
             }
             refresh()
@@ -261,7 +211,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     }
 
     private fun pruneAll() {
-        runInBackground("Pruning worktrees") {
+        runInBackground(WorktreeBundle.message("task.pruning")) {
             service.repositories().forEach { repo: GitRepository -> service.prune(repo) }
             refresh()
         }
@@ -269,7 +219,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
 
     private fun notifyError(title: String, detail: String) {
         ApplicationManager.getApplication().invokeLater {
-            Messages.showErrorDialog(project, detail.ifBlank { "Unknown git error." }, title)
+            Messages.showErrorDialog(
+                project,
+                detail.ifBlank { WorktreeBundle.message("message.error.unknown") },
+                title,
+            )
         }
     }
 
@@ -280,19 +234,24 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     }
 
     private fun canDelete(row: WorktreeRow?): Boolean =
-        row != null && !row.isCurrent && !row.isBare &&
-            ((row.hasWorktree) || row.hasBranch)
+        row != null && !row.isCurrent && !row.isBare && (row.hasWorktree || row.hasBranch)
 
     // --- Toolbar actions -------------------------------------------------
 
-    private inner class RefreshAction :
-        AnAction("Refresh", "Reload worktrees and branches", AllIcons.Actions.Refresh) {
+    private inner class RefreshAction : AnAction(
+        WorktreeBundle.message("action.refresh"),
+        WorktreeBundle.message("action.refresh.desc"),
+        AllIcons.Actions.Refresh,
+    ) {
         override fun actionPerformed(e: AnActionEvent) = refresh()
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
-    private inner class OpenAction :
-        AnAction("Open in New Window", "Open the selected worktree in a new IDE window", AllIcons.Actions.MoveToWindow) {
+    private inner class OpenAction : AnAction(
+        WorktreeBundle.message("action.open"),
+        WorktreeBundle.message("action.open.desc"),
+        AllIcons.Actions.MoveToWindow,
+    ) {
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { openWorktree(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             val row = selected()
@@ -301,8 +260,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
-    private inner class ShowInGitLogAction :
-        AnAction("Show in Git Log", "Show the selected branch in the Git Log graph", AllIcons.Vcs.Branch) {
+    private inner class ShowInGitLogAction : AnAction(
+        WorktreeBundle.message("action.showInLog"),
+        WorktreeBundle.message("action.showInLog.desc"),
+        AllIcons.Vcs.Branch,
+    ) {
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { showInGitLog(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             e.presentation.isEnabled = selected()?.hasBranch == true
@@ -310,8 +272,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
-    private inner class DeleteAction :
-        AnAction("Delete", "Remove the selected worktree and/or branch", AllIcons.General.Remove) {
+    private inner class DeleteAction : AnAction(
+        WorktreeBundle.message("action.delete"),
+        WorktreeBundle.message("action.delete.desc"),
+        AllIcons.General.Remove,
+    ) {
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { deleteRow(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             e.presentation.isEnabled = canDelete(selected())
@@ -319,8 +284,11 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
 
-    private inner class PruneAction :
-        AnAction("Prune", "Prune worktree metadata for directories that no longer exist", AllIcons.Actions.GC) {
+    private inner class PruneAction : AnAction(
+        WorktreeBundle.message("action.prune"),
+        WorktreeBundle.message("action.prune.desc"),
+        AllIcons.Actions.GC,
+    ) {
         override fun actionPerformed(e: AnActionEvent) = pruneAll()
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }

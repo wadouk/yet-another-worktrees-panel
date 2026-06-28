@@ -1,6 +1,8 @@
 # Worktree Manager
 
-An IntelliJ Platform plugin to manage your Git worktrees from a dedicated tool window.
+An IntelliJ Platform plugin to manage your Git worktrees from a **"Pruning" tab** inside the
+Version Control tool window (the existing Git tool window). The UI is localized in **English and
+French** (« Élagage »).
 
 ## Features
 
@@ -49,9 +51,9 @@ Install the built zip via *Settings → Plugins → ⚙ → Install Plugin from 
 
 ## No IDE restart needed
 
-This is a **dynamic plugin**: it only uses dynamic extension points (a tool window) and
-disposes its resources cleanly, so it loads, updates, and unloads **without restarting the
-IDE**.
+This is a **dynamic plugin**: it only uses dynamic extension points (the `changesViewContent`
+tab) and disposes its resources cleanly, so it loads, updates, and unloads **without restarting
+the IDE**.
 
 - **Installing / updating**: *Install Plugin from Disk* loads it immediately — no mandatory
   restart.
@@ -66,18 +68,31 @@ IDE**.
 
 ```
 src/main/kotlin/com/comet/worktreemanager/
-├── model/
-│   ├── WorktreeInfo.kt                # raw `git worktree list` entry
-│   └── WorktreeRow.kt                 # unified worktree-or-branch table row
+├── i18n/
+│   └── WorktreeBundle.kt              # DynamicBundle (messages.WorktreeBundle)
+├── model/                            # pure data only — no i18n, no clock
+│   ├── WorktreeInfo.kt               # raw `git worktree list` entry
+│   ├── WorktreeRow.kt                # unified worktree-or-branch row (raw fields)
+│   └── WorkingTreeStatus.kt          # staged/modified/untracked/conflicted counts
 ├── service/
 │   ├── WorktreeParser.kt             # pure parser for `git worktree list --porcelain`
-│   ├── BranchRefParser.kt            # pure parser for `git for-each-ref` (tracking)
+│   ├── BranchRefParser.kt            # pure parser for `git for-each-ref` (tracking + date)
+│   ├── GitStatusParser.kt            # pure parser for `git status --porcelain`
 │   ├── WorktreeRowBuilder.kt         # pure merge of worktrees + branches into rows
+│   ├── ActivityResolver.kt           # pure: pick file-change vs commit timestamp
+│   ├── DefaultBranchResolver.kt      # pure: resolve the default branch
 │   ├── GitWorktreeCommand.kt         # reflective `worktree` GitCommand
 │   └── WorktreeService.kt            # git4idea-backed operations
-└── toolwindow/
-    ├── WorktreeToolWindowFactory.kt   # registers the tool window
-    ├── WorktreePanel.kt               # toolbar + filter + sortable table
-    ├── WorktreeTableModel.kt          # 4-column table model
-    └── DeleteDialog.kt                # adaptive delete confirmation (worktree/branch)
+└── toolwindow/                       # presentation: i18n + current clock live here
+    ├── WorktreePruningContentProvider.kt  # VCS-tab provider (+ tab name & visibility)
+    ├── WorktreePanel.kt              # toolbar + filter + sortable table
+    ├── WorktreeRowPresenter.kt       # builds translated cell labels + tooltips
+    ├── WorktreeTableModel.kt         # 7-column table model
+    ├── RelativeAge.kt                # pure relative-age bucket (now injected)
+    ├── RelativeTimeCell.kt           # localizes the bucket; sorts by timestamp
+    └── DeleteDialog.kt               # adaptive delete confirmation (worktree/branch)
+
+src/main/resources/messages/
+├── WorktreeBundle.properties         # English (base)
+└── WorktreeBundle_fr.properties      # French (« Élagage »)
 ```

@@ -4,10 +4,10 @@
     <vendor email="nicolas.betheuil@comet.team">Nicolas Betheuil</vendor>
 
     <description><![CDATA[
-        Manage your Git worktrees from a dedicated tool window.
+        Manage your Git worktrees from a "Pruning" tab in the Version Control tool window.
         <ul>
-            <li>List every worktree of the current repositories (branch, path, status).</li>
-            <li>Open a worktree in a new IDE window.</li>
+            <li>List every worktree of the current repositories and branches without one.</li>
+            <li>Open a worktree in a new IDE window; show a branch in the Git Log.</li>
             <li>Remove / prune a worktree, optionally deleting its branch — with guard rails.</li>
         </ul>
     ]]></description>
@@ -15,11 +15,13 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>
 
+    <resource-bundle>messages.WorktreeBundle</resource-bundle>
+
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow
-            id="Worktrees"
-            anchor="right"
-            icon="AllIcons.Vcs.Branch"
-            factoryClass="com.comet.worktreemanager.toolwindow.WorktreeToolWindowFactory"/>
+        <changesViewContent
+            tabName="Pruning"
+            className="com.comet.worktreemanager.toolwindow.WorktreePruningContentProvider"
+            displayNameSupplierClassName="com.comet.worktreemanager.toolwindow.WorktreeTabName"
+            predicateClassName="com.comet.worktreemanager.toolwindow.WorktreeTabVisibility"/>
     </extensions>
 </idea-plugin>

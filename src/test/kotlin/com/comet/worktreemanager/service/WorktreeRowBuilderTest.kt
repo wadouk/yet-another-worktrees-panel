@@ -16,7 +16,7 @@ class WorktreeRowBuilderTest {
 
     /**
      * Worktrees pick up their branch's tracking status, and a local branch with
-     * no worktree shows up as its own row flagged "no worktree".
+     * no worktree shows up as its own row (raw data; labels live in the presenter).
      */
     @Test
     fun mergesWorktreesWithBranchesAndKeepsOrphanBranches() {
@@ -37,12 +37,11 @@ class WorktreeRowBuilderTest {
         val feature = rows.first { it.branch == "feature" }
         assertTrue(feature.hasWorktree)
         assertEquals(2, feature.ahead)
-        assertEquals("↑2 ↓1", feature.trackingLabel)
+        assertEquals(1, feature.behind)
 
         val orphan = rows.first { it.branch == "orphan" }
         assertFalse(orphan.hasWorktree)
         assertEquals(3, orphan.behind)
-        assertTrue(orphan.statusLabel.contains("no worktree"))
-        assertEquals("—", orphan.worktreeLabel)
+        assertEquals("origin/orphan", orphan.upstream)
     }
 }

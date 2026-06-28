@@ -12,7 +12,6 @@ class GitStatusParserTest {
         val status = GitStatusParser.parse(emptyList())
 
         assertTrue(status.isClean)
-        assertEquals("clean", status.shortLabel)
     }
 
     /** Staged, unstaged, and untracked changes are counted from the XY codes. */
@@ -30,7 +29,6 @@ class GitStatusParserTest {
         assertEquals(2, status.staged)
         assertEquals(2, status.modified)
         assertEquals(1, status.untracked)
-        assertEquals("+2 ~2 ?1", status.shortLabel)
     }
 
     /** Merge-conflict codes are counted as conflicts, not staged/modified. */

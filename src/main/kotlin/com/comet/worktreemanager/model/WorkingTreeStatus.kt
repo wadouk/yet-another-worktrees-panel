@@ -15,13 +15,4 @@ data class WorkingTreeStatus(
     val conflicted: Int,
 ) {
     val isClean: Boolean get() = staged == 0 && modified == 0 && untracked == 0 && conflicted == 0
-
-    /** Compact column label, e.g. `clean` or `+1 ~2 ?3 !1`. */
-    val shortLabel: String
-        get() = if (isClean) "clean" else buildList {
-            if (staged > 0) add("+$staged")
-            if (modified > 0) add("~$modified")
-            if (untracked > 0) add("?$untracked")
-            if (conflicted > 0) add("!$conflicted")
-        }.joinToString(" ")
 }
