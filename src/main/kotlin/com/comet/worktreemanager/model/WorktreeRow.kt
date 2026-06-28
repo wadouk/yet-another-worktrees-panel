@@ -24,9 +24,22 @@ data class WorktreeRow(
     val repositoryRoot: String,
     /** Working-tree dirtiness; null when there is no worktree or it's unknown. */
     val workingTree: WorkingTreeStatus? = null,
+    /** Whether this branch is merged into the repo's default branch; null = N/A. */
+    val isMerged: Boolean? = null,
+    /** The repo's default branch name, used to label/compare; null if unknown. */
+    val defaultBranch: String? = null,
 ) {
     val hasWorktree: Boolean get() = worktreePath != null
     val hasBranch: Boolean get() = branch != null
+
+    /** Merged column: merged/unmerged vs the default branch, or "default"/"—". */
+    val mergedLabel: String
+        get() = when {
+            branch != null && branch == defaultBranch -> "default"
+            isMerged == true -> "merged"
+            isMerged == false -> "unmerged"
+            else -> "—"
+        }
 
     /** Changes column: working-tree dirtiness, or em dash when not applicable. */
     val changesLabel: String

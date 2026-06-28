@@ -51,8 +51,9 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
             val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
             return when (convertColumnIndexToModel(viewCol)) {
                 2 -> trackingTooltip(row)
-                3 -> changesTooltip(row)
-                4 -> statusTooltip(row)
+                3 -> mergedTooltip(row)
+                4 -> changesTooltip(row)
+                5 -> statusTooltip(row)
                 else -> null
             }
         }
@@ -145,6 +146,17 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()) {
                     if (row.behind > 0) add("${row.behind} behind")
                 }.joinToString(", "),
             )
+        }
+    }
+
+    private fun mergedTooltip(row: WorktreeRow): String {
+        if (row.branch == null) return "Not a branch"
+        val default = row.defaultBranch ?: return "Default branch is unknown"
+        return when {
+            row.branch == default -> "This is the default branch ('$default')"
+            row.isMerged == true -> "Merged into the default branch ('$default')"
+            row.isMerged == false -> "Not yet merged into the default branch ('$default')"
+            else -> "Merge status unavailable"
         }
     }
 

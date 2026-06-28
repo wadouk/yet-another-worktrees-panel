@@ -37,17 +37,49 @@ class WorktreeService(private val project: Project) {
      */
     fun listRows(): List<WorktreeRow> =
         repositories()
-            .flatMap { repo ->
-                WorktreeRowBuilder.build(listWorktrees(repo), listBranches(repo), repo.root.path)
-                    .map { row ->
-                        if (row.hasWorktree && !row.isBare) {
-                            row.copy(workingTree = workingTreeStatus(row.worktreePath!!))
-                        } else {
-                            row
-                        }
-                    }
-            }
+            .flatMap { repo -> rowsFor(repo) }
             .distinctBy { (it.worktreePath ?: it.branch).orEmpty() + "@" + it.repositoryRoot }
+
+    private fun rowsFor(repo: GitRepository): List<WorktreeRow> {
+        val branches = listBranches(repo)
+        val rows = WorktreeRowBuilder.build(listWorktrees(repo), branches, repo.root.path)
+
+        val default = detectDefaultBranch(repo, branches.mapTo(mutableSetOf()) { it.name })
+        val merged = default?.let { mergedBranches(repo, it.ref) } ?: emptySet()
+
+        return rows.map { row ->
+            row.copy(
+                workingTree = if (row.hasWorktree && !row.isBare) workingTreeStatus(row.worktreePath!!) else null,
+                isMerged = when {
+                    row.branch == null || default == null -> null
+                    row.branch == default.name -> null
+                    else -> row.branch in merged
+                },
+                defaultBranch = default?.name,
+            )
+        }
+    }
+
+    /** Resolves the repo's default branch via `origin/HEAD`, else local main/master. */
+    private fun detectDefaultBranch(repo: GitRepository, localBranches: Set<String>): DefaultBranchResolver.Result? {
+        val handler = GitLineHandler(project, repo.root, GitCommand.REV_PARSE)
+        handler.addParameters("--abbrev-ref", "origin/HEAD")
+        val result = Git.getInstance().runCommand(handler)
+        val originHead = if (result.success()) result.output.firstOrNull() else null
+        return DefaultBranchResolver.resolve(originHead, localBranches)
+    }
+
+    /** Local branches whose tip is already an ancestor of [targetRef]. */
+    private fun mergedBranches(repo: GitRepository, targetRef: String): Set<String> {
+        val handler = GitLineHandler(project, repo.root, GitCommand.FOR_EACH_REF)
+        handler.addParameters("--format=%(refname:short)", "--merged=$targetRef", "refs/heads")
+        val result = Git.getInstance().runCommand(handler)
+        if (!result.success()) {
+            thisLogger().warn("git for-each-ref --merged failed: ${result.errorOutputAsJoinedString}")
+            return emptySet()
+        }
+        return result.output.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
 
     /** Working-tree dirtiness of a worktree, via `git status --porcelain`. */
     fun workingTreeStatus(worktreePath: String): WorkingTreeStatus? {
