@@ -8,8 +8,8 @@ import java.awt.Color
 import javax.swing.JTable
 
 /**
- * Branch column renderer: the current worktree's branch is shown in bold with a
- * yellow "HEAD" tag, mirroring the bundled Git branches UI.
+ * Branch column renderer: the current worktree's branch is prefixed with a yellow
+ * "HEAD" pill, so the worktree open in this IDE window stands out at a glance.
  */
 class WorktreeBranchRenderer(private val model: WorktreeTableModel) : ColoredTableCellRenderer() {
 
@@ -24,21 +24,14 @@ class WorktreeBranchRenderer(private val model: WorktreeTableModel) : ColoredTab
         row: Int,
         column: Int,
     ) {
-        val text = value?.toString().orEmpty()
         val modelRow = row.takeIf { it >= 0 }?.let { model.rowAt(table.convertRowIndexToModel(it)) }
-        if (modelRow == null) {
-            append(text)
-            return
-        }
-        if (modelRow.isCurrent) {
-            append(text, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
-            append("  ")
+        if (modelRow?.isCurrent == true) {
             append(
                 " ${WorktreeBundle.message("branch.headTag")} ",
                 SimpleTextAttributes(headBg, headFg, null, SimpleTextAttributes.STYLE_SMALLER),
             )
-        } else {
-            append(text, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            append("  ")
         }
+        append(value?.toString().orEmpty(), SimpleTextAttributes.REGULAR_ATTRIBUTES)
     }
 }
