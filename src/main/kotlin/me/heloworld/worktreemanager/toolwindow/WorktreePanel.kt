@@ -25,11 +25,14 @@ import com.intellij.ui.SearchTextField
 import com.intellij.ui.table.JBTable
 import com.intellij.vcs.log.impl.VcsLogContentUtil
 import git4idea.repo.GitRepository
+import git4idea.repo.GitRepositoryChangeListener
 import java.awt.BorderLayout
 import java.awt.datatransfer.StringSelection
+import java.awt.event.HierarchyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 import javax.swing.JPanel
 import javax.swing.ListSelectionModel
@@ -78,6 +81,8 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     private val filterField = SearchTextField().apply {
         textEditor.emptyText.text = WorktreeBundle.message("filter.placeholder")
     }
+    /** Guards against overlapping background scans when refresh triggers pile up. */
+    private val refreshing = AtomicBoolean(false)
 
     init {
         val actionGroup = DefaultActionGroup().apply {
@@ -123,6 +128,19 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             add(DeleteAction())
         }
         PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
+
+        // Keep the list current from two angles:
+        //  - GIT_REPO_CHANGE reflects in-IDE git activity (checkout, worktree
+        //    create/delete via the plugin) as soon as it happens;
+        //  - becoming visible re-scans on tab selection, which catches worktrees
+        //    added/removed from an external terminal that git4idea hasn't noticed.
+        project.messageBus.connect(this).subscribe(
+            GitRepository.GIT_REPO_CHANGE,
+            GitRepositoryChangeListener { refresh() },
+        )
+        addHierarchyListener { e ->
+            if (e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong() != 0L && isShowing) refresh()
+        }
 
         refresh()
     }
@@ -174,12 +192,19 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     }
 
     private fun refresh() {
+        // Coalesce bursts (repeated GIT_REPO_CHANGE, docking flaps) so we don't
+        // stack redundant background git scans; the flag clears once git returns.
+        if (!refreshing.compareAndSet(false, true)) return
         runInBackground(WorktreeBundle.message("task.loading")) {
-            val rows = service.listRows()
-            ApplicationManager.getApplication().invokeLater {
-                tableModel.setRows(rows)
-                // After the first load, an empty table means there really is nothing.
-                table.emptyText.text = WorktreeBundle.message("table.empty")
+            try {
+                val rows = service.listRows()
+                ApplicationManager.getApplication().invokeLater {
+                    tableModel.setRows(rows)
+                    // After the first load, an empty table means there really is nothing.
+                    table.emptyText.text = WorktreeBundle.message("table.empty")
+                }
+            } finally {
+                refreshing.set(false)
             }
         }
     }
