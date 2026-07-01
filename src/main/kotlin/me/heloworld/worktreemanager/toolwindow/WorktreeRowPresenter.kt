@@ -4,7 +4,6 @@ import me.heloworld.worktreemanager.i18n.WorktreeBundle
 import me.heloworld.worktreemanager.model.WorktreeRow
 import me.heloworld.worktreemanager.service.CleanupCandidate
 import me.heloworld.worktreemanager.service.CleanupCategory
-import java.nio.file.Path
 
 /**
  * Presentation layer: builds the translated, user-facing labels and tooltips for
@@ -27,15 +26,7 @@ object WorktreeRowPresenter {
     fun worktree(row: WorktreeRow): String {
         val path = row.worktreePath ?: return WorktreeBundle.message("worktree.none")
         val main = row.mainWorktreePath ?: return path
-        return relativize(main, path)
-    }
-
-    private fun relativize(mainPath: String, path: String): String = try {
-        val base = Path.of(mainPath).parent ?: return path
-        val rel = base.relativize(Path.of(path)).toString()
-        if (rel.isEmpty() || rel.startsWith("..")) path else rel
-    } catch (e: Exception) {
-        path
+        return RelativeWorktreePath.of(main, path)
     }
 
     fun cleanup(row: WorktreeRow): String = when (CleanupCandidate.of(row)) {
