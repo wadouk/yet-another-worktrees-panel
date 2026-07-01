@@ -6,8 +6,8 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
 
-group = "me.heloworld"
-version = "0.1.0"
+group = providers.gradleProperty("pluginGroup").get()
+version = providers.gradleProperty("pluginVersion").get()
 
 repositories {
     mavenCentral()
@@ -18,8 +18,8 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        // Target IntelliJ IDEA Community 2024.3 (works in Ultimate too).
-        intellijIdeaCommunity("2024.3")
+        // Target platform read from gradle.properties (default IC 2024.3, works in Ultimate too).
+        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
         // Bundled Git plugin — exposes the git4idea command API we drive.
         bundledPlugin("Git4Idea")
         testFramework(TestFrameworkType.Platform)
@@ -30,7 +30,7 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            sinceBuild = "243"
+            sinceBuild = providers.gradleProperty("pluginSinceBuild").get()
             untilBuild = provider { null }
         }
     }
@@ -39,7 +39,7 @@ intellijPlatform {
     // reports compatibility problems and dynamic-plugin (no-restart) eligibility.
     pluginVerification {
         ides {
-            ide(IntelliJPlatformType.IntellijIdeaCommunity, "2024.3")
+            ide(IntelliJPlatformType.IntellijIdeaCommunity, providers.gradleProperty("platformVersion").get())
         }
     }
 }
