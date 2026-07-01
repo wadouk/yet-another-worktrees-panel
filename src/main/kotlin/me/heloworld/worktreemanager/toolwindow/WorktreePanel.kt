@@ -3,6 +3,7 @@ package me.heloworld.worktreemanager.toolwindow
 import me.heloworld.worktreemanager.i18n.WorktreeBundle
 import me.heloworld.worktreemanager.model.WorktreeRow
 import me.heloworld.worktreemanager.service.WorktreeService
+import me.heloworld.worktreemanager.settings.WorktreeSettings
 import com.intellij.icons.AllIcons
 import com.intellij.ide.impl.ProjectUtil
 import com.intellij.openapi.Disposable
@@ -80,6 +81,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         val actionGroup = DefaultActionGroup().apply {
             add(RefreshAction())
             add(OpenAction())
+            add(CreateWorktreeAction())
             add(DeleteAction())
             addSeparator()
             add(PruneAction())
@@ -110,6 +112,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
 
         val popupGroup = DefaultActionGroup().apply {
             add(OpenAction())
+            add(CreateWorktreeAction())
             add(ShowInGitLogAction())
             addSeparator()
             add(DeleteAction())
@@ -183,6 +186,40 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             return
         }
         ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
+    }
+
+    /** Creates a worktree for a branch that has none, then opens it in a new window. */
+    private fun createWorktree(row: WorktreeRow) {
+        val branch = row.branch ?: return
+        val repo = service.repositoryByRoot(row.repositoryRoot) ?: run {
+            Messages.showErrorDialog(
+                project,
+                WorktreeBundle.message("message.create.noRepo"),
+                WorktreeBundle.message("dialog.create.title"),
+            )
+            return
+        }
+        val base = WorktreePlacement.baseDir(
+            WorktreeSettings.getInstance(project).worktreeBaseDir,
+            repo.root.path,
+        )
+        val dialog = CreateWorktreeDialog(project, branch, WorktreePlacement.defaultWorktreePath(base, branch))
+        if (!dialog.showAndGet()) return
+        val path = dialog.options().path
+        runInBackground(WorktreeBundle.message("task.creating")) {
+            val result = service.addWorktree(repo, path, branch)
+            if (!result.success()) {
+                notifyError(
+                    WorktreeBundle.message("dialog.create.title"),
+                    WorktreeBundle.message("message.error.create", result.errorOutputAsJoinedString),
+                )
+                return@runInBackground
+            }
+            // openOrImport is a slow op; run it here on the background task (it
+            // handles its own threading) rather than pushing it onto the EDT.
+            ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
+            refresh()
+        }
     }
 
     /** Entry point for the Delete action: one adaptive dialog, or a batch one. */
@@ -315,6 +352,20 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             val row = selected()
             e.presentation.isEnabled =
                 table.selectedRowCount == 1 && row != null && row.hasWorktree && !row.isCurrent
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class CreateWorktreeAction : AnAction(
+        WorktreeBundle.message("action.create"),
+        WorktreeBundle.message("action.create.desc"),
+        AllIcons.General.Add,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.let { createWorktree(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            val row = selected()
+            e.presentation.isEnabled = table.selectedRowCount == 1 && row != null &&
+                !row.hasWorktree && row.hasBranch && !row.isCurrent && !row.isBare
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }

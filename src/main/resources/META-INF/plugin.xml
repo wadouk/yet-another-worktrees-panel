@@ -23,5 +23,11 @@
             className="me.heloworld.worktreemanager.toolwindow.WorktreePruningContentProvider"
             displayNameSupplierClassName="me.heloworld.worktreemanager.toolwindow.WorktreeTabName"
             predicateClassName="me.heloworld.worktreemanager.toolwindow.WorktreeTabVisibility"/>
+        <projectConfigurable
+            instance="me.heloworld.worktreemanager.settings.WorktreeSettingsConfigurable"
+            id="me.heloworld.yawp.settings"
+            parentId="tools"
+            key="settings.title"
+            bundle="messages.WorktreeBundle"/>
     </extensions>
 </idea-plugin>

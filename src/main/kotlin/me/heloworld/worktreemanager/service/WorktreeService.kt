@@ -141,6 +141,16 @@ class WorktreeService(private val project: Project) {
     }
 
     /**
+     * Adds a worktree at [path] checking out the existing local [branch], via
+     * `git worktree add <path> <branch>`. Git creates any missing parent dirs.
+     */
+    fun addWorktree(repo: GitRepository, path: String, branch: String): GitCommandResult {
+        val handler = GitLineHandler(project, repo.root, GitWorktreeCommand.INSTANCE)
+        handler.addParameters("add", path, branch)
+        return Git.getInstance().runCommand(handler)
+    }
+
+    /**
      * Removes a worktree. With [force] git also removes worktrees that contain
      * uncommitted changes or untracked files.
      */
