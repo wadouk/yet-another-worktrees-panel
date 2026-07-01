@@ -13,6 +13,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -25,6 +26,7 @@ import com.intellij.ui.table.JBTable
 import com.intellij.vcs.log.impl.VcsLogContentUtil
 import git4idea.repo.GitRepository
 import java.awt.BorderLayout
+import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.nio.file.Path
@@ -115,6 +117,9 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             add(CreateWorktreeAction())
             add(ShowInGitLogAction())
             addSeparator()
+            add(CopyBranchAction())
+            add(CopyPathAction())
+            addSeparator()
             add(DeleteAction())
         }
         PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
@@ -156,6 +161,10 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         if (viewRow >= 0 && !table.isRowSelected(viewRow)) {
             table.setRowSelectionInterval(viewRow, viewRow)
         }
+    }
+
+    private fun copyToClipboard(text: String) {
+        CopyPasteManager.getInstance().setContents(StringSelection(text))
     }
 
     /** Opens the Git Log tab and navigates the commit graph to the branch. */
@@ -378,6 +387,30 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun actionPerformed(e: AnActionEvent) = selected()?.let { showInGitLog(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasBranch == true
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class CopyBranchAction : AnAction(
+        WorktreeBundle.message("action.copyBranch"),
+        WorktreeBundle.message("action.copyBranch.desc"),
+        AllIcons.Actions.Copy,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.branch?.let { copyToClipboard(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasBranch == true
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class CopyPathAction : AnAction(
+        WorktreeBundle.message("action.copyPath"),
+        WorktreeBundle.message("action.copyPath.desc"),
+        AllIcons.Actions.Copy,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.worktreePath?.let { copyToClipboard(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasWorktree == true
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
