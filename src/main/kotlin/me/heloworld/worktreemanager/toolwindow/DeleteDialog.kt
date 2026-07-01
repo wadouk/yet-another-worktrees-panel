@@ -68,7 +68,12 @@ class DeleteDialog(
             } else {
                 WorktreeBundle.message("dialog.delete.force.branch")
             }
-            checkBox(text).applyToComponent { addActionListener { force = isSelected } }
+            // A clean worktree has nothing to discard, so forcing its removal is
+            // pointless — keep the checkbox visible but disabled.
+            val cleanWorktree = canRemoveWorktree && row.workingTree?.isClean == true
+            checkBox(text)
+                .enabled(!cleanWorktree)
+                .applyToComponent { addActionListener { force = isSelected } }
         }
     }
 
