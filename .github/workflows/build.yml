@@ -1,0 +1,108 @@
+# GitHub Actions workflow: build, test, and verify the plugin.
+# - build:  produce the plugin ZIP with 'buildPlugin' and upload it as an artifact.
+# - test:   run the 'check' task; upload test reports on failure.
+# - verify: run 'verifyPlugin' (plugin structure + IntelliJ Plugin Verifier).
+#
+# Marketplace publishing / release drafting are intentionally omitted for now.
+# Adapted from https://github.com/JetBrains/intellij-platform-plugin-template
+#
+# GitHub Actions reference: https://docs.github.com/actions
+
+name: Build
+on:
+  # Push builds only on 'master' to avoid duplicate runs with pull_request.
+  push:
+    branches: [ master ]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # Build the plugin distribution ZIP
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Sources
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-distribution
+          path: ./build/distributions/*.zip
+
+  # Run tests; keep reports on failure
+  test:
+    name: Test
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Sources
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Run Tests
+        run: ./gradlew check
+
+      - name: Collect Tests Result
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tests-result
+          path: ${{ github.workspace }}/build/reports/tests
+
+  # Plugin structure verification + IntelliJ Plugin Verifier
+  verify:
+    name: Verify plugin
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Sources
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Run Plugin Verification tasks
+        run: ./gradlew verifyPlugin
+
+      - name: Collect Plugin Verifier Result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pluginVerifier-result
+          path: ${{ github.workspace }}/build/reports/pluginVerifier
