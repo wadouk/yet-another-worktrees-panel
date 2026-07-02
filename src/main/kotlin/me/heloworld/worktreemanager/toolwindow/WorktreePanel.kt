@@ -125,6 +125,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             add(CopyBranchAction())
             add(CopyPathAction())
             addSeparator()
+            add(MoveWorktreeAction())
             add(DeleteAction())
         }
         PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
@@ -254,6 +255,46 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
             refresh()
         }
+    }
+
+    /** Moves the selected worktree to a new location chosen in a dialog. */
+    private fun moveWorktree(row: WorktreeRow) {
+        val fromPath = row.worktreePath ?: return
+        val repo = service.repositoryByRoot(row.repositoryRoot) ?: run {
+            Messages.showErrorDialog(
+                project,
+                WorktreeBundle.message("message.move.noRepo"),
+                WorktreeBundle.message("dialog.move.title"),
+            )
+            return
+        }
+        val dialog = MoveWorktreeDialog(project, fromPath)
+        if (!dialog.showAndGet()) return
+        val toPath = dialog.options().path
+        runInBackground(WorktreeBundle.message("task.moving")) {
+            val result = service.move(repo, fromPath, toPath)
+            if (!result.success()) {
+                notifyError(
+                    WorktreeBundle.message("dialog.move.title"),
+                    WorktreeBundle.message("message.error.move", result.errorOutputAsJoinedString),
+                )
+                return@runInBackground
+            }
+            // Moving the worktree this window has open leaves it on a dead path,
+            // so reopen at the new location; otherwise just refresh the list.
+            if (row.isCurrent) reopenAt(toPath) else refresh()
+        }
+    }
+
+    /**
+     * Reopens the moved current worktree in this window. `openOrImport`'s second
+     * argument is the project to close: with `forceOpenInNewFrame = false` the
+     * platform reuses this frame and closes the stale project itself, in the right
+     * order — a manual `closeAndDispose` raced with background services still
+     * touching the just-disposed project.
+     */
+    private fun reopenAt(path: String) {
+        ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ false)
     }
 
     /** Entry point for the Delete action: one adaptive dialog, or a batch one. */
@@ -436,6 +477,20 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun actionPerformed(e: AnActionEvent) = selected()?.worktreePath?.let { copyToClipboard(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasWorktree == true
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class MoveWorktreeAction : AnAction(
+        WorktreeBundle.message("action.move"),
+        WorktreeBundle.message("action.move.desc"),
+        AllIcons.Actions.MoveTo2,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.let { moveWorktree(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            val row = selected()
+            e.presentation.isEnabled = table.selectedRowCount == 1 && row != null &&
+                row.hasWorktree && !row.isBare && !row.isMain
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }

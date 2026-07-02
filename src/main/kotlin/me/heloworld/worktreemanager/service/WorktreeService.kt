@@ -162,6 +162,21 @@ class WorktreeService(private val project: Project) {
         return Git.getInstance().runCommand(handler)
     }
 
+    /**
+     * Moves a worktree from [fromPath] to [toPath], via `git worktree move`.
+     * Git updates the worktree's administrative metadata; the branch is unchanged.
+     *
+     * Unlike `add`, `git worktree move` renames the directory onto [toPath] and
+     * fails if the parent directory is missing, so we create the parents first.
+     * [toPath] itself must not exist — git creates it by the rename.
+     */
+    fun move(repo: GitRepository, fromPath: String, toPath: String): GitCommandResult {
+        File(toPath).parentFile?.mkdirs()
+        val handler = GitLineHandler(project, repo.root, GitWorktreeCommand.INSTANCE)
+        handler.addParameters("move", fromPath, toPath)
+        return Git.getInstance().runCommand(handler)
+    }
+
     /** Deletes a local branch. Uses `-D` when [force] to drop unmerged branches. */
     fun deleteBranch(repo: GitRepository, branch: String, force: Boolean): GitCommandResult {
         val handler = GitLineHandler(project, repo.root, GitCommand.BRANCH)
