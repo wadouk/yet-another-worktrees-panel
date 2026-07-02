@@ -125,6 +125,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             add(CopyBranchAction())
             add(CopyPathAction())
             addSeparator()
+            add(MoveWorktreeAction())
             add(DeleteAction())
         }
         PopupHandler.installPopupMenu(table, popupGroup, "WorktreeManagerPopup")
@@ -252,6 +253,33 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             // openOrImport is a slow op; run it here on the background task (it
             // handles its own threading) rather than pushing it onto the EDT.
             ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
+            refresh()
+        }
+    }
+
+    /** Moves the selected worktree to a new location chosen in a dialog. */
+    private fun moveWorktree(row: WorktreeRow) {
+        val fromPath = row.worktreePath ?: return
+        val repo = service.repositoryByRoot(row.repositoryRoot) ?: run {
+            Messages.showErrorDialog(
+                project,
+                WorktreeBundle.message("message.move.noRepo"),
+                WorktreeBundle.message("dialog.move.title"),
+            )
+            return
+        }
+        val dialog = MoveWorktreeDialog(project, fromPath)
+        if (!dialog.showAndGet()) return
+        val toPath = dialog.options().path
+        runInBackground(WorktreeBundle.message("task.moving")) {
+            val result = service.move(repo, fromPath, toPath)
+            if (!result.success()) {
+                notifyError(
+                    WorktreeBundle.message("dialog.move.title"),
+                    WorktreeBundle.message("message.error.move", result.errorOutputAsJoinedString),
+                )
+                return@runInBackground
+            }
             refresh()
         }
     }
@@ -436,6 +464,20 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun actionPerformed(e: AnActionEvent) = selected()?.worktreePath?.let { copyToClipboard(it) } ?: Unit
         override fun update(e: AnActionEvent) {
             e.presentation.isEnabled = table.selectedRowCount == 1 && selected()?.hasWorktree == true
+        }
+        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+    }
+
+    private inner class MoveWorktreeAction : AnAction(
+        WorktreeBundle.message("action.move"),
+        WorktreeBundle.message("action.move.desc"),
+        AllIcons.Actions.MoveTo2,
+    ) {
+        override fun actionPerformed(e: AnActionEvent) = selected()?.let { moveWorktree(it) } ?: Unit
+        override fun update(e: AnActionEvent) {
+            val row = selected()
+            e.presentation.isEnabled = table.selectedRowCount == 1 && row != null &&
+                row.hasWorktree && !row.isCurrent && !row.isBare
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }
