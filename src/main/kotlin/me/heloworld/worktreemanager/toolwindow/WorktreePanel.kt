@@ -17,6 +17,7 @@ import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.PopupHandler
@@ -280,7 +281,17 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
                 )
                 return@runInBackground
             }
-            refresh()
+            // Moving the worktree this window has open leaves it on a dead path,
+            // so reopen at the new location; otherwise just refresh the list.
+            if (row.isCurrent) reopenAt(toPath) else refresh()
+        }
+    }
+
+    /** Reopens the IDE at [path] (the moved current worktree) and closes the stale window. */
+    private fun reopenAt(path: String) {
+        ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
+        ApplicationManager.getApplication().invokeLater {
+            ProjectManager.getInstance().closeAndDispose(project)
         }
     }
 
@@ -477,7 +488,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         override fun update(e: AnActionEvent) {
             val row = selected()
             e.presentation.isEnabled = table.selectedRowCount == 1 && row != null &&
-                row.hasWorktree && !row.isCurrent && !row.isBare
+                row.hasWorktree && !row.isBare && !row.isMain
         }
         override fun getActionUpdateThread() = ActionUpdateThread.EDT
     }

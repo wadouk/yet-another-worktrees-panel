@@ -40,4 +40,8 @@ data class WorktreeRow(
     // stays free of i18n and the current clock.
     val hasWorktree: Boolean get() = worktreePath != null
     val hasBranch: Boolean get() = branch != null
+
+    /** True when this row is the repo's main worktree (which git refuses to move). */
+    val isMain: Boolean
+        get() = worktreePath != null && worktreePath.trimEnd('/') == mainWorktreePath?.trimEnd('/')
 }
