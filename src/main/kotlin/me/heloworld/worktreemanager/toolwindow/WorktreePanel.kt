@@ -17,7 +17,6 @@ import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.ui.Messages
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.PopupHandler
@@ -287,12 +286,15 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         }
     }
 
-    /** Reopens the IDE at [path] (the moved current worktree) and closes the stale window. */
+    /**
+     * Reopens the moved current worktree in this window. `openOrImport`'s second
+     * argument is the project to close: with `forceOpenInNewFrame = false` the
+     * platform reuses this frame and closes the stale project itself, in the right
+     * order — a manual `closeAndDispose` raced with background services still
+     * touching the just-disposed project.
+     */
     private fun reopenAt(path: String) {
-        ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ true)
-        ApplicationManager.getApplication().invokeLater {
-            ProjectManager.getInstance().closeAndDispose(project)
-        }
+        ProjectUtil.openOrImport(Path.of(path), project, /* forceOpenInNewFrame = */ false)
     }
 
     /** Entry point for the Delete action: one adaptive dialog, or a batch one. */
