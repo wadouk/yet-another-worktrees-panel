@@ -84,6 +84,9 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
     /** Guards against overlapping background scans when refresh triggers pile up. */
     private val refreshing = AtomicBoolean(false)
 
+    /** Row to select once loaded (repoRoot to branch), set by the Git Log action. */
+    private var pendingSelection: Pair<String, String>? = null
+
     init {
         val actionGroup = DefaultActionGroup().apply {
             add(RefreshAction())
@@ -172,6 +175,33 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             tableModel.rowAt(table.convertRowIndexToModel(viewIndex))
         }
 
+    /**
+     * Selects the row for [branch] in the repository at [repositoryRoot],
+     * revealing it. Called by the "Show in Worktrees tab" Git Log action. Since
+     * rows load in the background, the request is remembered and re-applied when
+     * the load finishes (see [refresh]).
+     */
+    fun selectRow(repositoryRoot: String, branch: String) {
+        pendingSelection = repositoryRoot.trimEnd('/') to branch
+        applyPendingSelection()
+    }
+
+    private fun applyPendingSelection() {
+        val (root, branch) = pendingSelection ?: return
+        val modelIndex = (0 until tableModel.rowCount).firstOrNull { i ->
+            val row = tableModel.rowAt(i)
+            row != null && row.branch == branch && row.repositoryRoot.trimEnd('/') == root
+        } ?: return
+        // Clear any active filter so the target row is visible before selecting.
+        if (filterField.text.isNotEmpty()) filterField.text = ""
+        val viewIndex = table.convertRowIndexToView(modelIndex)
+        if (viewIndex < 0) return
+        table.setRowSelectionInterval(viewIndex, viewIndex)
+        table.scrollRectToVisible(table.getCellRect(viewIndex, 0, true))
+        table.requestFocusInWindow()
+        pendingSelection = null
+    }
+
     private fun maybeSelectForPopup(e: MouseEvent) {
         if (!e.isPopupTrigger) return
         val viewRow = table.rowAtPoint(e.point)
@@ -203,6 +233,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
                     tableModel.setRows(rows)
                     // After the first load, an empty table means there really is nothing.
                     table.emptyText.text = WorktreeBundle.message("table.empty")
+                    applyPendingSelection()
                 }
             } finally {
                 refreshing.set(false)

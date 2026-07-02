@@ -19,11 +19,21 @@ class WorktreePruningContentProvider(private val project: Project) : ChangesView
     private var panel: WorktreePanel? = null
 
     override fun initContent(): JComponent =
-        WorktreePanel(project).also { panel = it }
+        WorktreePanel(project).also {
+            panel = it
+            project.getService(WorktreePanelHolder::class.java).panel = it
+        }
 
     override fun disposeContent() {
+        val holder = project.getService(WorktreePanelHolder::class.java)
+        if (holder.panel === panel) holder.panel = null
         panel?.dispose()
         panel = null
+    }
+
+    companion object {
+        /** Content tab name — must match `tabName` on the changesViewContent EP in plugin.xml. */
+        const val TAB_NAME = "Worktrees"
     }
 }
 
