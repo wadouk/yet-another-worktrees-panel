@@ -29,5 +29,19 @@
             parentId="tools"
             key="settings.title"
             bundle="messages.WorktreeBundle"/>
+        <!-- Git Log column: a folder icon on commits that are the tip of a branch checked out in a worktree. -->
+        <vcsLogCustomColumn implementation="me.heloworld.worktreemanager.gitlog.WorktreeLogColumn"/>
     </extensions>
+
+    <actions>
+        <action id="me.heloworld.worktreemanager.gitlog.OpenWorktreeFromLog"
+                class="me.heloworld.worktreemanager.gitlog.OpenWorktreeFromLogAction">
+            <add-to-group group-id="Vcs.Log.ContextMenu" anchor="first"/>
+        </action>
+        <action id="me.heloworld.worktreemanager.gitlog.ShowWorktreeInPanel"
+                class="me.heloworld.worktreemanager.gitlog.ShowWorktreeInPanelAction">
+            <add-to-group group-id="Vcs.Log.ContextMenu" anchor="after"
+                          relative-to-action="me.heloworld.worktreemanager.gitlog.OpenWorktreeFromLog"/>
+        </action>
+    </actions>
 </idea-plugin>
