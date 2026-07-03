@@ -33,7 +33,10 @@ class WorktreeLogColumn : VcsLogCustomColumn<String> {
     override fun getStubValue(model: GraphTableModel): String = ""
 
     override fun getValue(model: GraphTableModel, row: Int): String {
-        val branches = model.getBranchesAtRow(row)
+        // `getRefsAtRow` + branch filter rather than `getBranchesAtRow`: the latter
+        // was dropped from GraphTableModel after 2024.3, so calling it throws
+        // NoSuchMethodError on newer IDEs (the plugin leaves untilBuild open).
+        val branches = model.getRefsAtRow(row).filter { it.type.isBranch }
         if (branches.isEmpty()) return ""
         val index = model.logData.project.getService(WorktreeBranchIndex::class.java)
         return index.match(branches)?.worktreePath ?: ""
