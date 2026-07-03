@@ -30,4 +30,15 @@ class WorktreePlacementTest {
     fun defaultPathSanitizesBranchSlashes() {
         assertEquals("/base/feature-x", WorktreePlacement.defaultWorktreePath("/base", "feature/x"))
     }
+
+    /**
+     * A move re-parents the worktree under the new base, keeping its own folder
+     * name appended exactly once (a trailing separator on the base is absorbed,
+     * not doubled).
+     */
+    @Test
+    fun movedPathKeepsFolderNameOnceUnderNewBase() {
+        assertEquals("/new/feature-x", WorktreePlacement.movedWorktreePath("/new", "/old/feature-x"))
+        assertEquals("/new/feature-x", WorktreePlacement.movedWorktreePath("/new/", "/old/feature-x"))
+    }
 }
