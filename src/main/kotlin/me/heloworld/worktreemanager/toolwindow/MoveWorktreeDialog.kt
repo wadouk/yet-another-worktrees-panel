@@ -1,56 +1,129 @@
 package me.heloworld.worktreemanager.toolwindow
 
 import me.heloworld.worktreemanager.i18n.WorktreeBundle
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.ValidationInfo
+import com.intellij.ui.DocumentAdapter
+import com.intellij.ui.JBColor
+import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
+import java.awt.Color
+import java.io.File
+import java.nio.file.Path
 import javax.swing.JComponent
+import javax.swing.event.DocumentEvent
 
-/** The new path chosen for the moved worktree. */
+/** The new (full) path chosen for the moved worktree. */
 data class MoveWorktreeOptions(val path: String)
 
 /**
- * Confirmation dialog for moving a worktree: shows its current path and a path
- * field (prefilled with the current path) with a folder browse button. Only the
- * target path is editable; the branch is unaffected.
+ * Confirmation dialog for moving a worktree. It asks only for the destination
+ * *base directory* and keeps the worktree's own folder name, so moving is a
+ * matter of picking a new parent — the folder name is appended exactly once (see
+ * [WorktreePlacement.movedWorktreePath]). Prefilled with the current base dir;
+ * the branch is unaffected.
+ *
+ * Asking for the base dir (rather than the full destination) avoids a subtle
+ * `git worktree move` trap: handed a destination path that already exists as a
+ * directory, git nests the worktree *inside* it, doubling the folder name. Since
+ * this differs from the raw `git worktree move` behavior that seasoned users
+ * expect, a live preview spells out the resolved path and whether the base will
+ * be created (new tree) or already exists (moved inside it).
  */
 class MoveWorktreeDialog(
     project: Project,
     private val currentPath: String,
 ) : DialogWrapper(project) {
 
-    private val pathField = TextFieldWithBrowseButton().apply {
-        text = currentPath
+    private val folderName: String = Path.of(currentPath).fileName?.toString() ?: currentPath
+    private val currentBase: String = Path.of(currentPath).parent?.toString() ?: ""
+
+    private val baseField = TextFieldWithBrowseButton().apply {
+        text = currentBase
         addBrowseFolderListener(
             project,
             FileChooserDescriptorFactory.createSingleFolderDescriptor(),
         )
     }
 
+    private val previewLabel = JBLabel()
+
     init {
         title = WorktreeBundle.message("dialog.move.title")
         setOKButtonText(WorktreeBundle.message("dialog.move.ok"))
+        baseField.textField.document.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) = updatePreview()
+        })
         init()
+        updatePreview()
     }
 
     override fun createCenterPanel(): JComponent = panel {
         row(WorktreeBundle.message("dialog.move.currentLabel")) { label(currentPath).bold() }
-        row(WorktreeBundle.message("dialog.move.pathLabel")) {
-            cell(pathField).align(AlignX.FILL)
+        row(WorktreeBundle.message("dialog.move.baseLabel")) {
+            cell(baseField).align(AlignX.FILL)
+        }.comment(WorktreeBundle.message("dialog.move.baseComment", folderName))
+        row("") { cell(previewLabel).align(AlignX.FILL) }
+    }
+
+    /** Destination base dir with the worktree's folder name appended once. */
+    private fun targetPath(): String =
+        WorktreePlacement.movedWorktreePath(baseField.text.trim(), currentPath)
+
+    /**
+     * Live hint mirroring the three outcomes: an empty base clears it; a target
+     * that already exists is flagged red (git would nest the folder); otherwise
+     * the base either exists (worktree moved inside it) or will be created —
+     * distinguished by icon and color so the resolved path is never a surprise.
+     */
+    private fun updatePreview() {
+        val base = baseField.text.trim()
+        if (base.isEmpty()) {
+            previewLabel.icon = null
+            previewLabel.text = ""
+            return
+        }
+        val target = targetPath()
+        when {
+            File(target).exists() -> {
+                previewLabel.icon = AllIcons.General.Error
+                previewLabel.foreground = RED
+                previewLabel.text = WorktreeBundle.message("dialog.move.preview.exists", target)
+            }
+            File(base).isDirectory -> {
+                previewLabel.icon = AllIcons.General.InspectionsOK
+                previewLabel.foreground = GREEN
+                previewLabel.text = WorktreeBundle.message("dialog.move.preview.intoExisting", target)
+            }
+            else -> {
+                previewLabel.icon = AllIcons.General.Information
+                previewLabel.foreground = BLUE
+                previewLabel.text = WorktreeBundle.message("dialog.move.preview.create", target)
+            }
         }
     }
 
     override fun doValidate(): ValidationInfo? = when {
-        pathField.text.isBlank() ->
-            ValidationInfo(WorktreeBundle.message("dialog.move.pathEmpty"), pathField)
-        pathField.text.trim() == currentPath ->
-            ValidationInfo(WorktreeBundle.message("dialog.move.pathSame"), pathField)
+        baseField.text.isBlank() ->
+            ValidationInfo(WorktreeBundle.message("dialog.move.baseEmpty"), baseField)
+        targetPath() == currentPath ->
+            ValidationInfo(WorktreeBundle.message("dialog.move.pathSame"), baseField)
+        File(targetPath()).exists() ->
+            ValidationInfo(WorktreeBundle.message("dialog.move.pathExists", targetPath()), baseField)
         else -> null
     }
 
-    fun options(): MoveWorktreeOptions = MoveWorktreeOptions(pathField.text.trim())
+    fun options(): MoveWorktreeOptions = MoveWorktreeOptions(targetPath())
+
+    private companion object {
+        // Light/dark pairs so the hint stays legible in both themes.
+        val GREEN = JBColor(Color(0x1A7F37), Color(0x3FB950))
+        val BLUE = JBColor(Color(0x0A66C2), Color(0x4C9AFF))
+        val RED = JBColor(Color(0xC7222B), Color(0xF16B6B))
+    }
 }
