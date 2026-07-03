@@ -2,8 +2,8 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
-    kotlin("jvm") version "2.0.21"
-    id("org.jetbrains.intellij.platform") version "2.5.0"
+    kotlin("jvm") version "2.4.0"
+    id("org.jetbrains.intellij.platform") version "2.17.0"
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -39,7 +39,7 @@ intellijPlatform {
     // reports compatibility problems and dynamic-plugin (no-restart) eligibility.
     pluginVerification {
         ides {
-            ide(IntelliJPlatformType.IntellijIdeaCommunity, providers.gradleProperty("platformVersion").get())
+            create(IntelliJPlatformType.IntellijIdeaCommunity, providers.gradleProperty("platformVersion").get())
         }
     }
 }
