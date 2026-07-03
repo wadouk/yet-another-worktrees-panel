@@ -69,7 +69,10 @@ class MoveWorktreeDialog(
     override fun createCenterPanel(): JComponent = panel {
         row(WorktreeBundle.message("dialog.move.currentLabel")) { label(wrapped(currentPath)).bold() }
         row(WorktreeBundle.message("dialog.move.baseLabel")) {
-            cell(baseField).align(AlignX.FILL)
+            // resizableColumn makes this column grab the panel's spare width so the
+            // FILL picker actually stretches — otherwise the column hugs content and
+            // the field (the one thing you edit here) stays cramped.
+            cell(baseField).align(AlignX.FILL).resizableColumn()
         }.comment(WorktreeBundle.message("dialog.move.baseComment", folderName))
         row("") { cell(previewLabel).align(AlignX.FILL) }
     }.apply {
