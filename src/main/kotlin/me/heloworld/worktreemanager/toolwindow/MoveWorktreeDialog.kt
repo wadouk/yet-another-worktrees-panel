@@ -12,6 +12,7 @@ import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.LabelPosition
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.util.ui.JBUI
 import java.awt.Color
@@ -67,14 +68,22 @@ class MoveWorktreeDialog(
     }
 
     override fun createCenterPanel(): JComponent = panel {
-        row(WorktreeBundle.message("dialog.move.currentLabel")) { label(wrapped(currentPath)).bold() }
-        row(WorktreeBundle.message("dialog.move.baseLabel")) {
-            // resizableColumn makes this column grab the panel's spare width so the
-            // FILL picker actually stretches — otherwise the column hugs content and
-            // the field (the one thing you edit here) stays cramped.
-            cell(baseField).align(AlignX.FILL).resizableColumn()
-        }.comment(WorktreeBundle.message("dialog.move.baseComment", folderName))
-        row("") { cell(previewLabel).align(AlignX.FILL) }
+        // Vertical layout: captions sit ABOVE their value via LabelPosition.TOP, so
+        // there is no left label column stealing horizontal space — the picker (the
+        // one thing you edit here) spans the full dialog width, and its grey hint
+        // wraps underneath instead of squeezing the field.
+        row {
+            label(wrapped(currentPath)).bold()
+                .label(WorktreeBundle.message("dialog.move.currentLabel"), LabelPosition.TOP)
+        }
+        row {
+            cell(baseField)
+                .align(AlignX.FILL)
+                .resizableColumn()
+                .label(WorktreeBundle.message("dialog.move.baseLabel"), LabelPosition.TOP)
+                .comment(WorktreeBundle.message("dialog.move.baseComment", folderName))
+        }
+        row { cell(previewLabel).align(AlignX.FILL) }
     }.apply {
         // Keep a comfortable minimum width even when every text is short; the
         // wrapped labels bound the maximum, and DialogWrapper stays resizable.
