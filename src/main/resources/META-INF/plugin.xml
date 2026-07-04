@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>me.heloworld.yet-another-worktrees-panel</id>
     <name>Yet Another Worktrees Panel</name>
-    <vendor email="wadouk+yawp@gmail.com">wadouk</vendor>
+    <vendor email="wadouk+yawp@heloworld.me">wadouk</vendor>
 
     <description><![CDATA[
         Manage your Git worktrees from a "Worktrees" tab in the Version Control tool window.
