@@ -45,7 +45,15 @@ class WorktreeService(private val project: Project) {
         val commitMillisByBranch = branches.associate { it.name to it.committerTime * 1000 }
 
         val default = detectDefaultBranch(repo, branches.mapTo(mutableSetOf()) { it.name })
-        val merged = default?.let { mergedBranches(repo, it.ref) } ?: emptySet()
+        val merged = default?.let { d ->
+            val ancestorMerged = mergedBranches(repo, d.ref)
+            // `--merged` only catches branches whose tip is an ancestor of the
+            // default; squash/rebase merges aren't, so test the leftovers with
+            // the patch-equivalence trick and fold both sets together.
+            val candidates = branches.mapTo(mutableSetOf()) { it.name }
+                .apply { remove(d.name); removeAll(ancestorMerged) }
+            ancestorMerged + squashMergedBranches(repo, d.ref, candidates)
+        } ?: emptySet()
 
         return rows.map { row ->
             val statusLines = if (row.hasWorktree && !row.isBare) statusLines(row.worktreePath!!) else null
@@ -92,6 +100,41 @@ class WorktreeService(private val project: Project) {
             return emptySet()
         }
         return result.output.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    /**
+     * Of [candidates], the branches squash-/rebase-merged into [targetRef]: their
+     * commits aren't ancestors of it (so `--merged` misses them) but their whole
+     * diff is already present. Uses git's documented trick (`git help branch`,
+     * "SEE ALSO"): commit the branch's tree onto the merge base as a throwaway
+     * commit, then `git cherry` reports `-` when an equivalent patch is upstream.
+     * One extra git pass per candidate, so cost stays bounded to unmerged branches.
+     */
+    private fun squashMergedBranches(
+        repo: GitRepository,
+        targetRef: String,
+        candidates: Set<String>,
+    ): Set<String> = candidates.filterTo(mutableSetOf()) { isSquashMerged(repo, targetRef, it) }
+
+    private fun isSquashMerged(repo: GitRepository, targetRef: String, branch: String): Boolean {
+        val mergeBase = firstLine(repo, GitCommand.MERGE_BASE, targetRef, branch) ?: return false
+        val tree = firstLine(repo, GitCommand.REV_PARSE, "$branch^{tree}") ?: return false
+        val throwaway =
+            firstLine(repo, GitCommitTreeCommand.INSTANCE, tree, "-p", mergeBase, "-m", "_") ?: return false
+        val handler = GitLineHandler(project, repo.root, GitCommand.CHERRY)
+        handler.addParameters(targetRef, throwaway)
+        val result = Git.getInstance().runCommand(handler)
+        if (!result.success()) return false
+        return CherryMergeParser.isPatchPresentUpstream(result.output)
+    }
+
+    /** Runs [command] with [params] and returns its first non-blank output line, or null. */
+    private fun firstLine(repo: GitRepository, command: GitCommand, vararg params: String): String? {
+        val handler = GitLineHandler(project, repo.root, command)
+        handler.addParameters(*params)
+        val result = Git.getInstance().runCommand(handler)
+        if (!result.success()) return null
+        return result.output.map { it.trim() }.firstOrNull { it.isNotEmpty() }
     }
 
     /** Raw `git status --porcelain` lines for a worktree, or null on failure. */
