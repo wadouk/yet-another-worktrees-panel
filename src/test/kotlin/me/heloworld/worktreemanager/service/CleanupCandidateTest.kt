@@ -13,12 +13,13 @@ class CleanupCandidateTest {
         isMerged: Boolean? = null,
         isGone: Boolean = false,
         isCurrent: Boolean = false,
+        isLocked: Boolean = false,
         defaultBranch: String? = "main",
         workingTree: WorkingTreeStatus? = WorkingTreeStatus(0, 0, 0, 0),
     ) = WorktreeRow(
         branch = branch, worktreePath = worktreePath, head = "h", upstream = null,
         ahead = 0, behind = 0, isGone = isGone, isDetached = false, isBare = false,
-        isLocked = false, isPrunable = false, isCurrent = isCurrent, repositoryRoot = "/repo",
+        isLocked = isLocked, isPrunable = false, isCurrent = isCurrent, repositoryRoot = "/repo",
         workingTree = workingTree, isMerged = isMerged, defaultBranch = defaultBranch,
     )
 
@@ -46,5 +47,11 @@ class CleanupCandidateTest {
     fun defaultAndCurrentAreExcluded() {
         assertEquals(CleanupCategory.NONE, CleanupCandidate.of(row(branch = "main", isMerged = true)))
         assertEquals(CleanupCategory.NONE, CleanupCandidate.of(row(isMerged = true, isCurrent = true)))
+    }
+
+    /** A locked worktree is never flagged, even when merged and clean. */
+    @Test
+    fun lockedIsExcluded() {
+        assertEquals(CleanupCategory.NONE, CleanupCandidate.of(row(isMerged = true, isLocked = true)))
     }
 }
