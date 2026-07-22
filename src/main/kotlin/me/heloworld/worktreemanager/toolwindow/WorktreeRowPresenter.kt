@@ -65,6 +65,13 @@ object WorktreeRowPresenter {
 
     // --- Tooltips --------------------------------------------------------
 
+    /** Lock-state tooltip for the padlock icon in the Branch column; null when there's no worktree. */
+    fun lockTooltip(row: WorktreeRow): String? = when {
+        !row.hasWorktree -> null
+        row.isLocked -> WorktreeBundle.message("tooltip.lock.locked")
+        else -> WorktreeBundle.message("tooltip.lock.unlocked")
+    }
+
     /** Absolute worktree path as the Worktree column tooltip, or null. */
     fun worktreeTooltip(row: WorktreeRow): String? = row.worktreePath
 

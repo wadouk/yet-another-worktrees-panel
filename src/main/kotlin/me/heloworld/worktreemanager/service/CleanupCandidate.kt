@@ -14,12 +14,13 @@ enum class CleanupCategory { OBSOLETE, LIKELY_OBSOLETE, NONE }
  *  - OBSOLETE         = branch merged into the default branch AND clean
  *  - LIKELY_OBSOLETE  = upstream gone AND clean
  * "Clean" means no worktree (nothing to lose) or a worktree with no changes.
- * The current worktree, the default branch and the bare entry are never flagged.
+ * The current worktree, the default branch, the bare entry and any locked
+ * worktree are never flagged (git refuses to remove a locked worktree).
  */
 object CleanupCandidate {
 
     fun of(row: WorktreeRow): CleanupCategory {
-        if (row.isBare || row.isCurrent) return CleanupCategory.NONE
+        if (row.isBare || row.isCurrent || row.isLocked) return CleanupCategory.NONE
         if (row.branch != null && row.branch == row.defaultBranch) return CleanupCategory.NONE
 
         val clean = if (row.hasWorktree) row.workingTree?.isClean == true else true

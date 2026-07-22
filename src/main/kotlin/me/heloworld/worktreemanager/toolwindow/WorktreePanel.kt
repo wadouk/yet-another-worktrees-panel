@@ -59,6 +59,7 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
             if (viewRow < 0 || viewCol < 0) return null
             val row = tableModel.rowAt(convertRowIndexToModel(viewRow)) ?: return null
             return when (convertColumnIndexToModel(viewCol)) {
+                0 -> WorktreeRowPresenter.lockTooltip(row)
                 1 -> WorktreeRowPresenter.worktreeTooltip(row)
                 2 -> WorktreeRowPresenter.trackingTooltip(row)
                 3 -> WorktreeRowPresenter.mergedTooltip(row)
@@ -434,8 +435,12 @@ class WorktreePanel(private val project: Project) : JPanel(BorderLayout()), Disp
         }.queue()
     }
 
+    // A locked worktree cannot be deleted: git refuses to remove it, and the row
+    // is meant to stay put — so the Delete action (toolbar and context menu) is
+    // inactive for it, both alone and when it is part of a multi-selection.
     private fun canDelete(row: WorktreeRow?): Boolean =
-        row != null && !row.isCurrent && !row.isBare && (row.hasWorktree || row.hasBranch)
+        row != null && !row.isCurrent && !row.isBare && !row.isLocked &&
+            (row.hasWorktree || row.hasBranch)
 
     // --- Toolbar actions -------------------------------------------------
 
