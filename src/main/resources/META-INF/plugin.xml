@@ -12,6 +12,16 @@
         </ul>
     ]]></description>
 
+    <change-notes><![CDATA[
+        <b>0.10.0</b>
+        <ul>
+            <li>Show each worktree's lock state with an open/closed padlock icon in the Branch column;
+                a locked worktree is excluded from Cleanup and cannot be deleted (git refuses to remove it).</li>
+            <li>Merged status now also detects squash- and rebase-merged branches, not just fast-forward
+                ancestors — so a squash-merged branch is correctly flagged as merged / cleanup-safe.</li>
+        </ul>
+    ]]></change-notes>
+
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>
 
