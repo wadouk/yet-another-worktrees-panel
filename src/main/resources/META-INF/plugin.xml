@@ -13,6 +13,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <b>0.10.1</b>
+        <ul>
+            <li>Fix: deleting a clean worktree whose branch was not fully merged took two passes — the
+                Force checkbox that would have produced <code>git branch -D</code> was greyed out because
+                the worktree had nothing to discard. It now stays available whenever ticking it can still
+                change the outcome, and its label names both effects.</li>
+        </ul>
+
         <b>0.10.0</b>
         <ul>
             <li>Show each worktree's lock state with an open/closed padlock icon in the Branch column;
